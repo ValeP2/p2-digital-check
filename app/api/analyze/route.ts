@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { crawlWebsite } from '@/lib/crawler'
 import { buildPrompt } from '@/lib/prompt'
 
-export const maxDuration = 120
+export const maxDuration = 60
 
 // Modelle und Preise pro 1M Tokens (USD)
 // Alles Haiku → ~CHF 0.05-0.10 pro Analyse
@@ -77,15 +77,15 @@ export async function POST(req: NextRequest) {
         const hostname = new URL(inputUrl).hostname.replace(/^www\./, '')
 
         // Schritt 1: Web-Recherche mit Haiku (günstig)
-        send('status', 'Recherchiere externe Quellen...')
+        send('status', 'Analyse läuft – bitte einen Moment warten...')
         const researchResponse = await client.messages.create({
           model: MODELS.fast.id,
-          max_tokens: 2000,
-          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+          max_tokens: 800,
+          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }],
           system: 'Recherche-Assistent. Suche kompakt, gib nur das Wesentliche zurück.',
           messages: [{
             role: 'user',
-            content: `Suche nach: "${crawlData.companyName}" Bewertungen local.ch, Social Media (Instagram/Facebook), Konkurrenten in der Branche, weitere Domains. Maximal 3 Suchen. Kompakte Zusammenfassung.`
+            content: `Suche nach: "${crawlData.companyName}" Bewertungen local.ch, Social Media. 1 Suche genügt. Maximal 3 Sätze Zusammenfassung.`
           }],
         })
         addUsage('fast', researchResponse.usage.input_tokens, researchResponse.usage.output_tokens)

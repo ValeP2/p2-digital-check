@@ -391,12 +391,17 @@ export default function Home() {
           </form>
 
           {busy && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              {[0,1,2].map(i => (
-                <div key={i} className="w-2 h-2 rounded-full animate-bounce"
-                  style={{ background: CREAM, animationDelay: `${i*0.15}s`, opacity: 0.5 }} />
-              ))}
-              <span className="text-sm ml-2" style={{ color: CREAM_60 }}>{statusText}</span>
+            <div className="mt-8">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                {[0,1,2].map(i => (
+                  <div key={i} className="w-2 h-2 rounded-full animate-bounce"
+                    style={{ background: CREAM, animationDelay: `${i*0.15}s`, opacity: 0.5 }} />
+                ))}
+              </div>
+              <p className="text-base font-semibold" style={{ color: CREAM }}>{statusText}</p>
+              <p className="text-sm mt-1" style={{ color: CREAM_40 }}>
+                Die Analyse dauert ca. 30–60 Sekunden – bitte nicht die Seite verlassen.
+              </p>
             </div>
           )}
         </div>
