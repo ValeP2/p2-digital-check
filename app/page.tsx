@@ -1,65 +1,447 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useRef } from 'react'
+
+type Phase = 'idle' | 'crawling' | 'generating' | 'done' | 'error'
+
+interface CostInfo { inputTokens: number; outputTokens: number; chf: string }
+
+interface Scores {
+  positionierung: number; angebot: number; zielgruppe: number; vertrauen: number
+  conversion: number; seo: number; navigation: number; sprache: number
+  technik: number; externe_sichtbarkeit: number; gesamt: number
+}
+
+const CREAM = '#EBEACC'
+const CREAM_90 = 'rgba(235,234,204,0.9)'
+const CREAM_60 = 'rgba(235,234,204,0.6)'
+const CREAM_40 = 'rgba(235,234,204,0.4)'
+const CREAM_15 = 'rgba(235,234,204,0.15)'
+const CREAM_08 = 'rgba(235,234,204,0.08)'
+
+const SCORE_LABELS: { key: keyof Omit<Scores, 'gesamt'>; label: string; id: string }[] = [
+  { key: 'positionierung',       label: 'Erster Eindruck & Positionierung',  id: 'section-positionierung' },
+  { key: 'angebot',              label: 'Angebot & Verständlichkeit',         id: 'section-angebot' },
+  { key: 'zielgruppe',           label: 'Zielgruppe & Kundenbedürfnis',       id: 'section-zielgruppe' },
+  { key: 'vertrauen',            label: 'Vertrauen & Glaubwürdigkeit',        id: 'section-vertrauen' },
+  { key: 'conversion',           label: 'Kontakt & Conversion',               id: 'section-conversion' },
+  { key: 'seo',                  label: 'Inhalte & SEO',                      id: 'section-seo' },
+  { key: 'navigation',           label: 'Navigation & Struktur',              id: 'section-navigation' },
+  { key: 'sprache',              label: 'Sprache & Textqualität',             id: 'section-sprache' },
+  { key: 'technik',              label: 'Technik & Mobile',                   id: 'section-technik' },
+  { key: 'externe_sichtbarkeit', label: 'Externe Sichtbarkeit',               id: 'section-externe_sichtbarkeit' },
+]
+
+const HEADING_SCORE_MAP: { keywords: string[]; key: keyof Omit<Scores, 'gesamt'>; label: string; id: string }[] = [
+  { keywords: ['positionierung', 'eindruck'],       key: 'positionierung',       label: 'Erster Eindruck & Positionierung',  id: 'section-positionierung' },
+  { keywords: ['angebot', 'verständlichkeit'],      key: 'angebot',              label: 'Angebot & Verständlichkeit',         id: 'section-angebot' },
+  { keywords: ['zielgruppe', 'kundenbedürfnis'],    key: 'zielgruppe',           label: 'Zielgruppe & Kundenbedürfnis',       id: 'section-zielgruppe' },
+  { keywords: ['vertrauen', 'glaubwürdigkeit'],     key: 'vertrauen',            label: 'Vertrauen & Glaubwürdigkeit',        id: 'section-vertrauen' },
+  { keywords: ['kontakt', 'conversion'],            key: 'conversion',           label: 'Kontakt & Conversion',               id: 'section-conversion' },
+  { keywords: ['seo', 'inhalte'],                   key: 'seo',                  label: 'Inhalte & SEO',                      id: 'section-seo' },
+  { keywords: ['navigation', 'struktur'],           key: 'navigation',           label: 'Navigation & Struktur',              id: 'section-navigation' },
+  { keywords: ['sprache', 'textqualität'],          key: 'sprache',              label: 'Sprache & Textqualität',             id: 'section-sprache' },
+  { keywords: ['technik', 'mobile'],                key: 'technik',              label: 'Technik & Mobile',                   id: 'section-technik' },
+  { keywords: ['extern', 'sichtbarkeit', 'social'], key: 'externe_sichtbarkeit', label: 'Externe Sichtbarkeit',               id: 'section-externe_sichtbarkeit' },
+]
+
+function barColor(s: number) {
+  if (s <= 3) return '#ef4444'
+  if (s <= 5) return '#f97316'
+  if (s <= 7) return '#eab308'
+  return '#22c55e'
+}
+
+function scoreLabel(s: number) {
+  if (s <= 3) return 'Kritisch'
+  if (s <= 5) return 'Verbesserungsbedarf'
+  if (s <= 7) return 'Gut'
+  return 'Sehr gut'
+}
+
+function findScoreForHeading(h: string) {
+  const lower = h.toLowerCase()
+  return HEADING_SCORE_MAP.find(e => e.keywords.some(kw => lower.includes(kw))) ?? null
+}
+
+// ─── Score Dashboard ───────────────────────────────────────────────────────────
+function ScoreDashboard({ scores }: { scores: Scores }) {
+  const circ = 2 * Math.PI * 42
+  const pct = scores.gesamt / 10
+
+  function scrollTo(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="mb-12">
+      {/* Gesamtscore – Ring */}
+      <div className="flex flex-col items-center mb-10">
+        <svg width="150" height="150" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke={CREAM_15} strokeWidth="5" />
+          <circle
+            cx="50" cy="50" r="42" fill="none"
+            stroke={barColor(scores.gesamt)} strokeWidth="5"
+            strokeDasharray={`${pct * circ} ${circ}`}
+            strokeLinecap="round"
+            transform="rotate(-90 50 50)"
+          />
+          <text x="50" y="47" textAnchor="middle" dominantBaseline="central"
+            fontSize="28" fontWeight="700" fontFamily="Avenir Next, Avenir, sans-serif"
+            fill={CREAM}>{scores.gesamt}</text>
+          <text x="50" y="68" textAnchor="middle"
+            fontSize="9" fontFamily="Avenir Next, Avenir, sans-serif"
+            fill={CREAM_40}>von 10</text>
+        </svg>
+        <p className="text-base font-semibold mt-3" style={{ color: barColor(scores.gesamt) }}>
+          {scoreLabel(scores.gesamt)}
+        </p>
+      </div>
+
+      {/* Balken – Reihenfolge = Berichtsreihenfolge, klickbar */}
+      <div className="space-y-3 max-w-2xl mx-auto">
+        {SCORE_LABELS.map(({ key, label, id }) => {
+          const s = scores[key]
+          const c = barColor(s)
+          return (
+            <button
+              key={key}
+              onClick={() => scrollTo(id)}
+              className="w-full flex items-center gap-4 group rounded-xl px-3 py-2 -mx-3 transition-all"
+              style={{ background: 'transparent' }}
+              onMouseEnter={e => (e.currentTarget.style.background = CREAM_08)}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+              <span className="w-56 text-sm text-right shrink-0"
+                style={{ color: CREAM_90 }}>{label}</span>
+              <div className="flex-1 h-2 rounded-full" style={{ background: CREAM_15 }}>
+                <div className="h-full rounded-full" style={{ width: `${s * 10}%`, backgroundColor: c }} />
+              </div>
+              <span className="w-6 text-sm font-semibold shrink-0 text-right" style={{ color: CREAM }}>
+                {s}
+              </span>
+              <span className="text-sm opacity-0 group-hover:opacity-30 transition-opacity shrink-0"
+                style={{ color: CREAM }}>↓</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Legende */}
+      <div className="flex justify-center flex-wrap gap-5 mt-8">
+        {[['#ef4444','1–3 Kritisch'],['#f97316','4–5 Schwach'],['#eab308','6–7 Gut'],['#22c55e','8–10 Sehr gut']].map(([c, l]) => (
+          <div key={l} className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c }} />
+            <span className="text-sm" style={{ color: CREAM_60 }}>{l}</span>
+          </div>
+        ))}
+      </div>
     </div>
-  );
+  )
+}
+
+// ─── Inline Score Bar (in Report-Headings) ─────────────────────────────────────
+function InlineScoreBar({ scoreKey, label, scores }: { scoreKey: keyof Omit<Scores, 'gesamt'>; label: string; scores: Scores }) {
+  const s = scores[scoreKey]
+  const c = barColor(s)
+  return (
+    <div className="flex items-center gap-4 mb-4">
+      <span className="text-sm shrink-0" style={{ color: CREAM_60 }}>{label}</span>
+      <div className="flex-1 h-1.5 rounded-full" style={{ background: CREAM_15 }}>
+        <div className="h-full rounded-full" style={{ width: `${s * 10}%`, backgroundColor: c }} />
+      </div>
+      <span className="text-sm font-semibold shrink-0" style={{ color: CREAM }}>{s}</span>
+    </div>
+  )
+}
+
+// ─── Markdown Renderer ─────────────────────────────────────────────────────────
+function renderInline(text: string): React.ReactNode {
+  return text.split(/(\*\*.*?\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={i} style={{ color: CREAM, fontWeight: 600 }}>{part.slice(2, -2)}</strong>
+      : part
+  )
+}
+
+function MarkdownRenderer({ content, scores }: { content: string; scores: Scores | null }) {
+  const lines = content.split('\n')
+  const elements: React.ReactNode[] = []
+  let key = 0
+  let i = 0
+
+  let lastWasH2 = false
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    if (line.startsWith('## ')) {
+      elements.push(
+        <h2 key={key++} style={{ color: CREAM, borderColor: CREAM_15 }}
+          className="text-2xl font-bold mt-14 mb-5 pb-4 border-b tracking-wide">
+          {line.slice(3)}
+        </h2>
+      )
+      lastWasH2 = true
+      i++
+    } else if (line.startsWith('### ')) {
+      const headingText = line.slice(4)
+      const entry = scores ? findScoreForHeading(headingText) : null
+      const showDivider = !lastWasH2
+      lastWasH2 = false
+      elements.push(
+        <div key={key++} id={entry ? entry.id : undefined} style={{ scrollMarginTop: '32px' }}>
+          {/* Trennlinie – nur wenn nicht direkt nach ## */}
+          {showDivider && <div className="mt-0 mb-8" style={{ borderTop: `1px solid ${CREAM_15}` }} />}
+          {entry && scores && <InlineScoreBar scoreKey={entry.key} label={entry.label} scores={scores} />}
+          <h3 style={{ color: CREAM }} className="text-xl font-semibold mb-3">
+            {headingText}
+          </h3>
+        </div>
+      )
+      i++
+
+    } else if (line.startsWith('- ')) {
+      lastWasH2 = false
+      const items: string[] = []
+      while (i < lines.length && lines[i].startsWith('- ')) {
+        items.push(lines[i].slice(2)); i++
+      }
+      elements.push(
+        <ul key={key++} className="space-y-2 my-3 ml-1">
+          {items.map((item, idx) => (
+            <li key={idx} className="flex gap-3 text-base leading-relaxed" style={{ color: CREAM_90 }}>
+              <span className="mt-2 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: CREAM_40 }} />
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ul>
+      )
+
+    } else if (/^\d+\.\s/.test(line)) {
+      const items: string[] = []
+      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\.\s/, '')); i++
+      }
+      elements.push(
+        <ol key={key++} className="space-y-2.5 my-3 ml-1 list-none">
+          {items.map((item, idx) => (
+            <li key={idx} className="flex gap-4 text-base leading-relaxed" style={{ color: CREAM_90 }}>
+              <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5"
+                style={{ background: CREAM_15, color: CREAM }}>{idx + 1}</span>
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ol>
+      )
+
+    } else if (line.startsWith('*') && line.endsWith('*') && line.length > 2 && !line.startsWith('**')) {
+      elements.push(
+        <p key={key++} className="text-base font-semibold my-4"
+          style={{ color: CREAM }}>
+          {line.slice(1, -1)}
+        </p>
+      )
+      i++
+    } else if (line.trim() === '') {
+      elements.push(<div key={key++} className="h-2" />)
+      i++
+    } else {
+      lastWasH2 = false
+      elements.push(
+        <p key={key++} className="text-base leading-loose" style={{ color: CREAM_90 }}>
+          {renderInline(line)}
+        </p>
+      )
+      i++
+    }
+  }
+
+  return <div className="space-y-1">{elements}</div>
+}
+
+// ─── Export Button ─────────────────────────────────────────────────────────────
+function ExportButton({ report, scores, inputUrl }: { report: string; scores: Scores; inputUrl: string }) {
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const { generatePptx } = await import('@/lib/generatePptx')
+      await generatePptx(report, scores, inputUrl)
+    } catch (err) {
+      console.error('Export fehlgeschlagen:', err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleExport}
+      disabled={exporting}
+      className="flex items-center gap-2 text-sm rounded-full px-5 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+      style={{ background: CREAM_15, color: CREAM, border: `1px solid rgba(235,234,204,0.2)` }}
+    >
+      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+      </svg>
+      {exporting ? 'Wird erstellt…' : 'Als PowerPoint exportieren'}
+    </button>
+  )
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+export default function Home() {
+  const [url, setUrl] = useState('')
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [statusText, setStatusText] = useState('')
+  const [report, setReport] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [cost, setCost] = useState<CostInfo | null>(null)
+  const [scores, setScores] = useState<Scores | null>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
+
+  async function handleAnalyze(e: React.FormEvent) {
+    e.preventDefault()
+    if (!url.trim()) return
+    setPhase('crawling'); setStatusText('Crawle Website...')
+    setReport(''); setErrorMsg(''); setCost(null); setScores(null)
+
+    const res = await fetch('/api/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url.trim() }),
+    })
+    if (!res.ok || !res.body) {
+      setPhase('error'); setErrorMsg('Analyse fehlgeschlagen. Bitte URL prüfen.')
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = '', fullText = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const events = buffer.split('\n\n')
+      buffer = events.pop() ?? ''
+      for (const event of events) {
+        const evLine = event.split('\n').find(l => l.startsWith('event:'))
+        const dataLine = event.split('\n').find(l => l.startsWith('data:'))
+        if (!evLine || !dataLine) continue
+        const evType = evLine.slice(7).trim()
+        const data = JSON.parse(dataLine.slice(5)) as string
+        if (evType === 'status') { setStatusText(data); if (data.includes('Generiere')) setPhase('generating') }
+        else if (evType === 'scores') setScores(JSON.parse(data) as Scores)
+        else if (evType === 'chunk') { fullText += data; setReport(fullText) }
+        else if (evType === 'cost') setCost(JSON.parse(data) as CostInfo)
+        else if (evType === 'done') setPhase('done')
+        else if (evType === 'error') { setPhase('error'); setErrorMsg(data) }
+      }
+    }
+  }
+
+  async function handleLogout() {
+    await fetch('/api/auth', { method: 'DELETE' })
+    window.location.href = '/login'
+  }
+
+  const busy = phase === 'crawling' || phase === 'generating'
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: '#293263', color: CREAM }}>
+
+      {/* Header */}
+      <header className="no-print px-8 pt-7 pb-5 flex items-center justify-between">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-p2.svg" alt="P2 Logo" style={{ height: '30px', width: 'auto' }} />
+        <button onClick={handleLogout} className="text-sm transition-opacity hover:opacity-80"
+          style={{ color: CREAM_40 }}>
+          Abmelden
+        </button>
+      </header>
+
+      <main className="flex-1 max-w-2xl mx-auto w-full px-6 pb-24">
+
+        {/* Hero */}
+        <div className="text-center pt-14 pb-12 no-print">
+          <h1 className="text-6xl font-bold tracking-tight mb-4" style={{ color: CREAM }}>
+            P2/ Digitalcheck
+          </h1>
+          <p className="text-base" style={{ color: CREAM_40 }}>
+            URL eingeben – das Tool crawlt die Seite automatisch und erstellt einen vollständigen Digital Check Bericht.
+          </p>
+
+          <form onSubmit={handleAnalyze} className="mt-8 flex gap-3">
+            <input
+              type="text" value={url} onChange={e => setUrl(e.target.value)}
+              placeholder="https://www.beispiel.ch"
+              disabled={busy}
+              className="flex-1 rounded-full px-7 py-4 text-base outline-none disabled:opacity-50"
+              style={{ background: CREAM, color: '#293263', fontFamily: 'inherit' }}
+            />
+            <button type="submit" disabled={!url.trim() || busy}
+              className="rounded-full px-7 py-4 text-base font-semibold transition-opacity disabled:opacity-40 shrink-0"
+              style={{ background: CREAM_15, color: CREAM, border: `1px solid rgba(235,234,204,0.25)` }}>
+              {busy ? 'Läuft…' : 'Analysieren'}
+            </button>
+          </form>
+
+          {busy && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              {[0,1,2].map(i => (
+                <div key={i} className="w-2 h-2 rounded-full animate-bounce"
+                  style={{ background: CREAM, animationDelay: `${i*0.15}s`, opacity: 0.5 }} />
+              ))}
+              <span className="text-sm ml-2" style={{ color: CREAM_60 }}>{statusText}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Fehler */}
+        {phase === 'error' && (
+          <div className="no-print rounded-xl p-5 mb-8 text-base"
+            style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5' }}>
+            {errorMsg}
+          </div>
+        )}
+
+        {/* Score Dashboard */}
+        {scores && <ScoreDashboard scores={scores} />}
+
+        {/* Report */}
+        {report && (
+          <div ref={reportRef} className="pb-8">
+            <MarkdownRenderer content={report} scores={scores} />
+          </div>
+        )}
+      </main>
+
+      <footer className="no-print pb-10 px-8" style={{ color: 'rgba(235,234,204,0.18)' }}>
+        {phase === 'done' && (
+          <div className="max-w-2xl mx-auto flex items-center justify-between flex-wrap gap-4 pt-6 mb-6"
+            style={{ borderTop: '1px solid rgba(235,234,204,0.1)' }}>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-2 text-sm" style={{ color: '#22c55e' }}>
+                <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                Analyse abgeschlossen
+              </span>
+              {cost && (
+                <span className="text-sm" style={{ color: CREAM_40 }}>
+                  CHF {cost.chf} · {((cost.inputTokens + cost.outputTokens)/1000).toFixed(1)}k Tokens
+                </span>
+              )}
+            </div>
+            {scores && (
+              <ExportButton report={report} scores={scores} inputUrl={url} />
+            )}
+          </div>
+        )}
+        <div className="max-w-2xl mx-auto text-center text-sm">v0.1.0</div>
+      </footer>
+    </div>
+  )
 }
