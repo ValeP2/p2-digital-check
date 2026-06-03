@@ -77,14 +77,15 @@ export async function POST(req: NextRequest) {
 
         // Schritt 1: Web-Recherche
         send('status', 'Recherchiere externe Quellen...')
+        const researchHost = new URL(inputUrl).hostname.replace(/^www\./, '')
         const researchResponse = await client.messages.create({
           model: MODELS.fast.id,
           max_tokens: 800,
           tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }],
-          system: 'Recherche-Assistent. Suche kompakt, gib nur das Wesentliche zurück.',
+          system: 'Du recherchierst zu EINEM bestimmten Schweizer Unternehmen. Suche gezielt nach diesem Unternehmen auf local.ch, search.ch, Google Business und Social Media. Berichte NUR über dieses konkrete Unternehmen – keine allgemeinen Plattformen, keine unrelevanten Domains. Wenn du nichts findest, schreibe "Keine externen Einträge gefunden". Maximal 3 Sätze.',
           messages: [{
             role: 'user',
-            content: `Suche nach: "${crawlData.companyName}" Bewertungen local.ch, Social Media. 1 Suche genügt. Maximal 3 Sätze.`
+            content: `Unternehmen: "${crawlData.companyName}", Website: ${researchHost}. Suche EINMAL gezielt nach Bewertungen und Einträgen dieses Unternehmens auf Schweizer Verzeichnissen (local.ch, search.ch) und Social Media. Fasse nur Funde zu genau diesem Unternehmen zusammen.`
           }],
         })
         addUsage('fast', researchResponse.usage.input_tokens, researchResponse.usage.output_tokens)
@@ -136,7 +137,7 @@ Dein Bericht muss KONKRET und SPEZIFISCH sein:
 - Nenne konkrete Zahlen (Wortanzahl, fehlende Meta-Daten, Bilder ohne Alt-Text)
 - Bullet-Listen für Beispiele (Gerätetypen, fehlende Inhalte, Verbesserungsvorschläge)
 - Vorher/Nachher-Beispiele bei schwachen Texten
-- Externe Quellen einbeziehen (local.ch, Social Media, Konkurrenz)
+- Externe Quellen NUR erwähnen wenn sie in der Recherche real gefunden wurden (local.ch, search.ch, Social Media). Erfinde KEINE Plattformen und liste keine Verzeichnisse auf, die nicht geprüft wurden.
 - Jeder Abschnitt schliesst mit einer kursiven *Einschätzung* (in Sternchen)
 - Schweizer Rechtschreibung (ss statt ß)
 

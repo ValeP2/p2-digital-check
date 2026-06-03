@@ -361,8 +361,15 @@ function MarkdownRenderer({ content, scores }: { content: string; scores: Scores
 
     } else if (/^\d+\.\s/.test(line)) {
       const items: string[] = []
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s/, '')); i++
+      // Leerzeilen zwischen den Punkten tolerieren (Haiku setzt sie oft)
+      while (i < lines.length) {
+        if (/^\d+\.\s/.test(lines[i])) {
+          items.push(lines[i].replace(/^\d+\.\s/, '')); i++
+        } else if (lines[i].trim() === '' && i + 1 < lines.length && /^\d+\.\s/.test(lines[i + 1])) {
+          i++ // Leerzeile überspringen, nächste Zeile ist wieder nummeriert
+        } else {
+          break
+        }
       }
       elements.push(
         <ol key={key++} className="space-y-2.5 my-3 ml-1 list-none">
@@ -606,11 +613,11 @@ export default function Home() {
               type="text" value={url} onChange={e => setUrl(e.target.value)}
               placeholder="https://www.beispiel.ch"
               disabled={busy}
-              className="flex-1 rounded-full px-7 py-4 text-base outline-none disabled:opacity-50"
+              className="flex-1 rounded-full px-7 py-[11px] text-base outline-none disabled:opacity-50"
               style={{ background: CREAM, color: '#293263', fontFamily: 'inherit' }}
             />
             <button type="submit" disabled={!url.trim() || busy}
-              className="rounded-full px-7 py-4 text-base font-semibold transition-opacity disabled:opacity-40 shrink-0"
+              className="rounded-full px-7 py-[11px] text-base font-semibold transition-opacity disabled:opacity-40 shrink-0"
               style={{ background: CREAM_15, color: CREAM, border: `1px solid rgba(235,234,204,0.25)` }}>
               {busy ? 'Läuft…' : 'Analysieren'}
             </button>
