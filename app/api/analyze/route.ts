@@ -70,32 +70,11 @@ export async function POST(req: NextRequest) {
 
         send('status', 'Crawle Website...')
         const crawlData = await crawlWebsite(inputUrl)
-        send('status', `${crawlData.pages.length} Seiten analysiert – suche externe Signale...`)
+        send('status', `${crawlData.pages.length} Seiten analysiert...`)
 
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
         const prompt = buildPrompt(crawlData)
-        const hostname = new URL(inputUrl).hostname.replace(/^www\./, '')
-
-        // Schritt 1: Web-Recherche mit Haiku (günstig)
-        send('status', 'Analyse läuft – bitte einen Moment warten...')
-        const researchResponse = await client.messages.create({
-          model: MODELS.fast.id,
-          max_tokens: 800,
-          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }],
-          system: 'Recherche-Assistent. Suche kompakt, gib nur das Wesentliche zurück.',
-          messages: [{
-            role: 'user',
-            content: `Suche nach: "${crawlData.companyName}" Bewertungen local.ch, Social Media. 1 Suche genügt. Maximal 3 Sätze Zusammenfassung.`
-          }],
-        })
-        addUsage('fast', researchResponse.usage.input_tokens, researchResponse.usage.output_tokens)
-
-        let externalResearch = ''
-        for (const block of researchResponse.content) {
-          if (block.type === 'text') externalResearch = block.text
-        }
-
-        const fullPrompt = prompt + (externalResearch ? `\n\n---\nEXTERNE RECHERCHE:\n${externalResearch}\n---\n` : '')
+        const fullPrompt = prompt
 
         // Schritt 2: Scores mit Haiku (günstig, nur JSON)
         send('status', 'Bewerte Kategorien...')
