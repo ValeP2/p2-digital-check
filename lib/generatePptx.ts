@@ -88,13 +88,18 @@ function parseReport(markdown: string): { companyName: string; sections: Section
   }
 
   for (const line of lines) {
-    if (line.startsWith('## ')) {
-      companyName = line.slice(3).replace(/Website Analyse\s*[–-]\s*/i, '').trim()
-    } else if (line.startsWith('### ')) {
-      flush()
-      const title = stripMd(line.slice(4).trim())
-      const scoreEntry = findScoreKey(title)
-      current = { title, scoreKey: scoreEntry?.key, scoreLabel: scoreEntry?.label, body: '', bullets: [], numbered: [], einschaetzung: '' }
+    const headingMatch = line.match(/^(#{2,4})\s+(.+)/)
+    if (headingMatch) {
+      const text = stripMd(headingMatch[2].trim())
+      if (/website analyse/i.test(text)) {
+        // Haupttitel
+        companyName = text.replace(/Website Analyse\s*[–-]\s*/i, '').trim()
+      } else {
+        // Abschnitts-Überschrift (## oder ### – Haiku ist inkonsistent)
+        flush()
+        const scoreEntry = findScoreKey(text)
+        current = { title: text, scoreKey: scoreEntry?.key, scoreLabel: scoreEntry?.label, body: '', bullets: [], numbered: [], einschaetzung: '' }
+      }
     } else if (current) {
       if (line.startsWith('- ')) {
         current.bullets.push(stripMd(line.slice(2)))
@@ -116,10 +121,10 @@ function addScoreBar(slide: PptxGenJS.Slide, score: number, label: string, x: nu
   // Label
   slide.addText(label, { x, y, w: 3.2, h: 0.3, fontSize: 10, color: DIM, fontFace: 'Avenir Next', valign: 'middle' })
   // Track
-  slide.addShape(PptxGenJS.ShapeType.rect, { x: x + 3.4, y: y + 0.07, w: w - 3.4 - 0.5, h: 0.15, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
+  slide.addShape('rect', { x: x + 3.4, y: y + 0.07, w: w - 3.4 - 0.5, h: 0.15, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
   // Fill
   const fillW = Math.max(0.08, (w - 3.4 - 0.5) * score / 10)
-  slide.addShape(PptxGenJS.ShapeType.rect, { x: x + 3.4, y: y + 0.07, w: fillW, h: 0.15, fill: { color: c }, line: { color: c, width: 0 } })
+  slide.addShape('rect', { x: x + 3.4, y: y + 0.07, w: fillW, h: 0.15, fill: { color: c }, line: { color: c, width: 0 } })
   // Score
   slide.addText(`${score}`, { x: x + w - 0.4, y, w: 0.4, h: 0.3, fontSize: 13, bold: true, color: CREAM, fontFace: 'Avenir Next', align: 'right', valign: 'middle' })
 }
@@ -131,7 +136,7 @@ function addFooter(slide: PptxGenJS.Slide, companyName: string) {
   })
 }
 
-export async function generatePptx(markdown: string, scores: Scores, inputUrl: string) {
+export async function generatePptx(markdown: string, scores: Scores, inputUrl: string): Promise<{ buffer: Buffer; filename: string }> {
   const pptx = new PptxGenJS()
   pptx.layout = 'LAYOUT_WIDE'
 
@@ -146,7 +151,7 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
   s1.addText(companyName,        { x: CX, y: 2.85, w: CW, h: 1.2, fontSize: 42, bold: true, color: CREAM, fontFace: 'Avenir Next' })
   s1.addText(inputUrl,           { x: CX, y: 4.1,  w: CW, h: 0.4, fontSize: 13, color: DIM, fontFace: 'Avenir Next' })
   // Footer-Leiste unten fixiert
-  s1.addShape(PptxGenJS.ShapeType.rect, { x: CX, y: 6.3, w: CW, h: 0.03, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
+  s1.addShape('rect', { x: CX, y: 6.3, w: CW, h: 0.03, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
   s1.addText(today,                { x: CX,            y: 6.5, w: CW / 2, h: 0.35, fontSize: 11, color: DIM, fontFace: 'Avenir Next' })
   s1.addText('P2/ Kommunikation AG', { x: CX + CW / 2, y: 6.5, w: CW / 2, h: 0.35, fontSize: 11, color: DIM, fontFace: 'Avenir Next', align: 'right' })
 
@@ -178,7 +183,7 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
     // Score-Bar-Header – immer oben fixiert
     if (section.scoreKey && section.scoreLabel) {
       addScoreBar(slide, scores[section.scoreKey], section.scoreLabel, CX, 0.38, CW)
-      slide.addShape(PptxGenJS.ShapeType.rect, { x: CX, y: 0.75, w: CW, h: 0.03, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
+      slide.addShape('rect', { x: CX, y: 0.75, w: CW, h: 0.03, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
     }
 
     // Inhaltshöhe schätzen für vertikale Zentrierung
@@ -234,14 +239,7 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
 
   const filename = `P2-Digitalcheck-${companyName.replace(/[^a-zA-Z0-9äöüÄÖÜ]/g, '-').slice(0, 40)}-${today.replace(/\./g, '-')}.pptx`
 
-  // Robuster Browser-Download via Blob (writeFile zickt im Browser)
-  const blob = await pptx.write({ outputType: 'blob' }) as Blob
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  // Serverseitig: als Node-Buffer zurückgeben (pptxgenjs läuft nativ in Node)
+  const buffer = await pptx.write({ outputType: 'nodebuffer' }) as Buffer
+  return { buffer, filename }
 }

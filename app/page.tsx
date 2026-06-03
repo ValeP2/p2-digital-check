@@ -444,10 +444,25 @@ function ExportButton({ report, scores, inputUrl }: { report: string; scores: Sc
   async function handleExport() {
     setExporting(true)
     try {
-      const { generatePptx } = await import('@/lib/generatePptx')
-      await generatePptx(report, scores, inputUrl)
+      const res = await fetch('/api/export-pptx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, scores, url: inputUrl }),
+      })
+      if (!res.ok) throw new Error('Export-Request fehlgeschlagen: ' + res.status)
+      const blob = await res.blob()
+      const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+?)"/)?.[1] ?? 'P2-Digitalcheck.pptx'
+      const dlUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = dlUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 1000)
     } catch (err) {
       console.error('Export fehlgeschlagen:', err)
+      alert('PowerPoint-Export fehlgeschlagen. Bitte erneut versuchen.')
     } finally {
       setExporting(false)
     }
