@@ -391,9 +391,8 @@ function MarkdownRenderer({ content, scores }: { content: string; scores: Scores
         </div>
       )
 
-    // Horizontale Linie
+    // Horizontale Linie vom LLM ignorieren (wir setzen eigene Trennlinien vor jedem Abschnitt)
     } else if (line.trim() === '---' || line.trim() === '***') {
-      elements.push(<div key={key++} className="my-4" style={{ borderTop: `1px solid ${CREAM_15}` }} />)
       i++
 
     // Einschätzung (kursiv)
