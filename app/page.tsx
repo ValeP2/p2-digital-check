@@ -42,9 +42,17 @@ function safeHostname(url: string): string {
   try { return new URL(url).hostname } catch { return url }
 }
 
-function saveToHistory(analysis: SavedAnalysis) {
-  const existing = loadHistory().filter(a => a.url !== analysis.url)
-  const updated = [analysis, ...existing].slice(0, 50)
+function normalizeUrl(u: string): string {
+  let s = u.trim().toLowerCase()
+  s = s.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '')
+  return s
+}
+
+function saveToHistory(analysis: SavedAnalysis, keepExisting = false) {
+  const all = loadHistory()
+  // keepExisting=false → vorhandenen Eintrag mit gleicher URL überschreiben (entfernen)
+  const base = keepExisting ? all : all.filter(a => normalizeUrl(a.url) !== normalizeUrl(analysis.url))
+  const updated = [analysis, ...base].slice(0, 50)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
 }
 
@@ -505,6 +513,8 @@ export default function Home() {
   const [truncated, setTruncated] = useState(false)
   const [continuing, setContinuing] = useState(false)
   const [totalCost, setTotalCost] = useState<{ chf: number; count: number } | null>(null)
+  const [dupAnalysis, setDupAnalysis] = useState<SavedAnalysis | null>(null)
+  const [dupStep, setDupStep] = useState<'first' | 'overwrite' | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setHistory(loadHistory()) }, [])
@@ -531,9 +541,21 @@ export default function Home() {
     setErrorMsg('')
   }
 
-  async function handleAnalyze(e: React.FormEvent) {
+  function handleAnalyze(e: React.FormEvent) {
     e.preventDefault()
     if (!url.trim()) return
+    // Duplikat-Check: schon analysiert?
+    const existing = loadHistory().find(a => normalizeUrl(a.url) === normalizeUrl(url))
+    if (existing) {
+      setDupAnalysis(existing)
+      setDupStep('first')
+      return
+    }
+    runAnalysis(false)
+  }
+
+  async function runAnalysis(keepExisting: boolean) {
+    setDupStep(null); setDupAnalysis(null)
     setPhase('crawling'); setStatusText('Crawle Website...')
     setReport(''); setErrorMsg(''); setCost(null); setScores(null); setTruncated(false)
 
@@ -589,7 +611,7 @@ export default function Home() {
           report: fullText,
           cost: finalCost,
         }
-        saveToHistory(entry)
+        saveToHistory(entry, keepExisting)
         setHistory(loadHistory())
       }
     }
@@ -806,6 +828,61 @@ export default function Home() {
           onClose={() => setShowArchive(false)}
           onLoad={a => { loadAnalysis(a); setShowArchive(false) }}
         />
+      )}
+
+      {/* Duplikat-Dialog */}
+      {dupStep && dupAnalysis && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => { setDupStep(null); setDupAnalysis(null) }}>
+          <div className="w-full max-w-md rounded-2xl p-7" style={{ background: '#293263', border: '1px solid rgba(235,234,204,0.15)' }}
+            onClick={e => e.stopPropagation()}>
+
+            {dupStep === 'first' ? (
+              <>
+                <h2 className="text-lg font-semibold mb-2" style={{ color: CREAM }}>Bereits analysiert</h2>
+                <p className="text-sm mb-6" style={{ color: CREAM_60 }}>
+                  Für <strong style={{ color: CREAM }}>{dupAnalysis.companyName || safeHostname(dupAnalysis.url)}</strong> existiert
+                  bereits eine Analyse vom {new Date(dupAnalysis.date).toLocaleDateString('de-CH')} (Score {dupAnalysis.scores.gesamt}/10).
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => { loadAnalysis(dupAnalysis); setDupStep(null); setDupAnalysis(null) }}
+                    className="rounded-full px-5 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+                    style={{ background: CREAM, color: '#293263' }}>
+                    Vorhandene Analyse öffnen
+                  </button>
+                  <button onClick={() => setDupStep('overwrite')}
+                    className="rounded-full px-5 py-3 text-sm transition-opacity hover:opacity-80"
+                    style={{ background: 'rgba(235,234,204,0.1)', color: CREAM, border: '1px solid rgba(235,234,204,0.2)' }}>
+                    Neu analysieren
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold mb-2" style={{ color: CREAM }}>Neu analysieren</h2>
+                <p className="text-sm mb-6" style={{ color: CREAM_60 }}>
+                  Soll die bestehende Analyse überschrieben oder eine zusätzliche angelegt werden?
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => runAnalysis(false)}
+                    className="rounded-full px-5 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+                    style={{ background: CREAM, color: '#293263' }}>
+                    Überschreiben
+                  </button>
+                  <button onClick={() => runAnalysis(true)}
+                    className="rounded-full px-5 py-3 text-sm transition-opacity hover:opacity-80"
+                    style={{ background: 'rgba(235,234,204,0.1)', color: CREAM, border: '1px solid rgba(235,234,204,0.2)' }}>
+                    Zusätzliche Analyse anlegen
+                  </button>
+                  <button onClick={() => setDupStep('first')}
+                    className="text-xs mt-1 transition-opacity hover:opacity-100" style={{ color: CREAM_40 }}>
+                    ← Zurück
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
