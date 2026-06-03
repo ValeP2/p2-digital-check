@@ -13,6 +13,39 @@ interface Scores {
   technik: number; externe_sichtbarkeit: number; gesamt: number
 }
 
+interface SavedAnalysis {
+  id: string
+  url: string
+  companyName: string
+  date: string
+  scores: Scores
+  report: string
+  cost: CostInfo | null
+}
+
+const STORAGE_KEY = 'p2-analyses'
+
+function loadHistory(): SavedAnalysis[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') } catch { return [] }
+}
+
+function saveToHistory(analysis: SavedAnalysis) {
+  const existing = loadHistory().filter(a => a.url !== analysis.url)
+  const updated = [analysis, ...existing].slice(0, 50)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+}
+
+function deleteFromHistory(id: string) {
+  const updated = loadHistory().filter(a => a.id !== id)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+}
+
+function extractCompanyName(report: string): string {
+  const match = report.match(/##\s+Website Analyse\s*[–-]\s*(.+)/i)
+  return match ? match[1].trim() : ''
+}
+
 const CREAM = '#EBEACC'
 const CREAM_90 = 'rgba(235,234,204,0.9)'
 const CREAM_60 = 'rgba(235,234,204,0.6)'
@@ -63,6 +96,75 @@ function scoreLabel(s: number) {
 function findScoreForHeading(h: string) {
   const lower = h.toLowerCase()
   return HEADING_SCORE_MAP.find(e => e.keywords.some(kw => lower.includes(kw))) ?? null
+}
+
+// ─── Archive Modal ─────────────────────────────────────────────────────────────
+function ArchiveModal({ onClose, onLoad }: { onClose: () => void; onLoad: (a: SavedAnalysis) => void }) {
+  const [history, setHistory] = useState<SavedAnalysis[]>([])
+  const [sort, setSort] = useState<'date' | 'score' | 'name'>('date')
+
+  useEffect(() => { setHistory(loadHistory()) }, [])
+
+  const sorted = [...history].sort((a, b) => {
+    if (sort === 'score') return b.scores.gesamt - a.scores.gesamt
+    if (sort === 'name') return a.companyName.localeCompare(b.companyName)
+    return new Date(b.date).getTime() - new Date(a.date).getTime()
+  })
+
+  function handleDelete(id: string) {
+    deleteFromHistory(id)
+    setHistory(h => h.filter(a => a.id !== id))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl overflow-hidden"
+        style={{ background: '#293263', border: '1px solid rgba(235,234,204,0.15)' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(235,234,204,0.1)' }}>
+          <h2 className="text-base font-semibold" style={{ color: '#EBEACC' }}>Analyse-Archiv ({history.length})</h2>
+          <div className="flex items-center gap-3">
+            <select value={sort} onChange={e => setSort(e.target.value as typeof sort)}
+              className="text-sm rounded-lg px-3 py-1.5 outline-none"
+              style={{ background: 'rgba(235,234,204,0.1)', color: '#EBEACC', border: '1px solid rgba(235,234,204,0.15)' }}>
+              <option value="date">Datum</option>
+              <option value="score">Score</option>
+              <option value="name">Name</option>
+            </select>
+            <button onClick={onClose} className="text-sm opacity-50 hover:opacity-100 transition-opacity" style={{ color: '#EBEACC' }}>✕</button>
+          </div>
+        </div>
+
+        {/* Liste */}
+        <div className="overflow-y-auto flex-1">
+          {sorted.length === 0 && (
+            <p className="text-center py-12 text-sm" style={{ color: 'rgba(235,234,204,0.4)' }}>Noch keine Analysen gespeichert</p>
+          )}
+          {sorted.map(a => (
+            <div key={a.id} className="flex items-center gap-4 px-6 py-3 group transition-colors cursor-pointer"
+              style={{ borderBottom: '1px solid rgba(235,234,204,0.06)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.05)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              onClick={() => { onLoad(a); onClose() }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                style={{ background: 'rgba(235,234,204,0.1)', color: '#EBEACC' }}>
+                {a.scores.gesamt}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: '#EBEACC' }}>{a.companyName || a.url}</p>
+                <p className="text-xs truncate" style={{ color: 'rgba(235,234,204,0.4)' }}>{a.url} · {new Date(a.date).toLocaleDateString('de-CH')}</p>
+              </div>
+              <button onClick={e => { e.stopPropagation(); handleDelete(a.id) }}
+                className="opacity-0 group-hover:opacity-40 hover:!opacity-100 text-xs transition-opacity px-2 py-1 rounded"
+                style={{ color: '#EBEACC' }}>Löschen</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─── Score Dashboard ───────────────────────────────────────────────────────────
@@ -359,7 +461,20 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState('')
   const [cost, setCost] = useState<CostInfo | null>(null)
   const [scores, setScores] = useState<Scores | null>(null)
+  const [history, setHistory] = useState<SavedAnalysis[]>([])
+  const [showArchive, setShowArchive] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setHistory(loadHistory()) }, [])
+
+  function loadAnalysis(a: SavedAnalysis) {
+    setUrl(a.url)
+    setReport(a.report)
+    setScores(a.scores)
+    setCost(a.cost)
+    setPhase('done')
+    setErrorMsg('')
+  }
 
   async function handleAnalyze(e: React.FormEvent) {
     e.preventDefault()
@@ -384,7 +499,34 @@ export default function Home() {
       const { done, value } = await reader.read()
       if (done) {
         // Stream geschlossen – sicherstellen dass phase 'done' ist
-        setPhase(p => p === 'error' ? p : 'done')
+        setPhase(p => {
+          if (p !== 'error') {
+            // Analyse in History speichern
+            setReport(r => {
+              setScores(sc => {
+                setCost(co => {
+                  if (r && sc) {
+                    const entry: SavedAnalysis = {
+                      id: Date.now().toString(),
+                      url: url,
+                      companyName: extractCompanyName(r),
+                      date: new Date().toISOString(),
+                      scores: sc,
+                      report: r,
+                      cost: co,
+                    }
+                    saveToHistory(entry)
+                    setHistory(loadHistory())
+                  }
+                  return co
+                })
+                return sc
+              })
+              return r
+            })
+          }
+          return p === 'error' ? p : 'done'
+        })
         break
       }
       buffer += decoder.decode(value, { stream: true })
@@ -465,6 +607,33 @@ export default function Home() {
               </p>
             </div>
           )}
+        {/* Recent + Archiv */}
+        {phase === 'idle' && history.length > 0 && (
+          <div className="mt-6 no-print">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs uppercase tracking-widest" style={{ color: 'rgba(235,234,204,0.35)' }}>Zuletzt analysiert</span>
+              <button onClick={() => setShowArchive(true)} className="text-xs hover:opacity-80 transition-opacity" style={{ color: 'rgba(235,234,204,0.45)' }}>
+                Alle anzeigen ({history.length}) →
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {history.slice(0, 5).map(a => (
+                <button key={a.id} onClick={() => loadAnalysis(a)}
+                  className="flex items-center gap-2 text-sm rounded-full px-4 py-2 transition-all hover:opacity-80"
+                  style={{ background: 'rgba(235,234,204,0.08)', border: '1px solid rgba(235,234,204,0.12)', color: '#EBEACC' }}>
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ background: 'rgba(235,234,204,0.15)' }}>
+                    {a.scores.gesamt}
+                  </span>
+                  <span className="max-w-[180px] truncate">{a.companyName || new URL(a.url).hostname}</span>
+                  <span className="text-xs shrink-0" style={{ color: 'rgba(235,234,204,0.35)' }}>
+                    {new Date(a.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         </div>
 
         {/* Fehler */}
@@ -508,6 +677,13 @@ export default function Home() {
         )}
         <div className="max-w-2xl mx-auto text-center text-sm">v0.1.0</div>
       </footer>
+
+      {showArchive && (
+        <ArchiveModal
+          onClose={() => setShowArchive(false)}
+          onLoad={a => { loadAnalysis(a); setShowArchive(false) }}
+        />
+      )}
     </div>
   )
 }
