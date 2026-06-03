@@ -233,5 +233,15 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
   }
 
   const filename = `P2-Digitalcheck-${companyName.replace(/[^a-zA-Z0-9äöüÄÖÜ]/g, '-').slice(0, 40)}-${today.replace(/\./g, '-')}.pptx`
-  await pptx.writeFile({ fileName: filename })
+
+  // Robuster Browser-Download via Blob (writeFile zickt im Browser)
+  const blob = await pptx.write({ outputType: 'blob' }) as Blob
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

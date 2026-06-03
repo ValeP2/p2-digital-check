@@ -218,7 +218,7 @@ function ScoreDashboard({ scores }: { scores: Scores }) {
       </div>
 
       {/* Balken – animiert wachsend */}
-      <div className="space-y-3 max-w-2xl mx-auto">
+      <div className="space-y-3 max-w-3xl mx-auto">
         {SCORE_LABELS.map(({ key, label, id }, idx) => {
           const s = scores[key]
           const c = barColor(s)
@@ -568,7 +568,7 @@ export default function Home() {
         </button>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-6 pb-24">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 pb-24">
 
         {/* Hero */}
         <div className="text-center pt-14 pb-12 no-print">
@@ -658,7 +658,7 @@ export default function Home() {
 
       <footer className="no-print pb-10 px-8" style={{ color: 'rgba(235,234,204,0.18)' }}>
         {phase === 'done' && (
-          <div className="max-w-2xl mx-auto flex items-center justify-between flex-wrap gap-4 pt-6 mb-6"
+          <div className="max-w-4xl mx-auto flex items-center justify-between flex-wrap gap-4 pt-6 mb-6"
             style={{ borderTop: '1px solid rgba(235,234,204,0.1)' }}>
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-2 text-sm" style={{ color: '#22c55e' }}>
@@ -676,7 +676,7 @@ export default function Home() {
             )}
           </div>
         )}
-        <div className="max-w-2xl mx-auto text-center text-sm">v0.1.0</div>
+        <div className="max-w-4xl mx-auto text-center text-sm">v0.1.0</div>
       </footer>
 
       {showArchive && (
