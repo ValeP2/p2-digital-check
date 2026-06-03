@@ -31,6 +31,7 @@ export interface TechnicalData {
   hasOpenGraph: boolean
   hasStructuredData: boolean
   h1Count: number
+  platform: string
 }
 
 export interface CrawlResult {
@@ -52,7 +53,7 @@ function cleanText(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
-async function fetchPage(url: string): Promise<{ html: string; statusCode: number } | null> {
+async function fetchPage(url: string): Promise<{ html: string; statusCode: number; headers: Record<string, string> } | null> {
   try {
     const response = await axios.get(url, {
       timeout: 12000,
@@ -63,10 +64,10 @@ async function fetchPage(url: string): Promise<{ html: string; statusCode: numbe
       },
       maxRedirects: 5,
     })
-    return { html: response.data as string, statusCode: response.status }
+    return { html: response.data as string, statusCode: response.status, headers: response.headers as Record<string, string> }
   } catch (error: unknown) {
     if (axios.isAxiosError(error) && error.response) {
-      return { html: error.response.data as string, statusCode: error.response.status }
+      return { html: error.response.data as string, statusCode: error.response.status, headers: (error.response.headers ?? {}) as Record<string, string> }
     }
     return null
   }
@@ -134,6 +135,38 @@ function prioritiseLinks(links: string[], maxLinks: number): string[] {
   return scored.slice(0, maxLinks).map(s => s.link)
 }
 
+function detectPlatform(html: string, headers: Record<string, string>): string {
+  const h = html.toLowerCase()
+  const generator = html.match(/<meta[^>]+name=["']generator["'][^>]+content=["']([^"']+)["']/i)?.[1] ?? ''
+  const xPoweredBy = headers['x-powered-by'] ?? ''
+  const server = headers['server'] ?? ''
+
+  // Reihenfolge: spezifische Signale zuerst
+  if (/wp-content|wp-includes|wp-json/.test(h) || /wordpress/i.test(generator)) return 'WordPress'
+  if (/cdn\.shopify|shopify/.test(h) || /shopify/i.test(xPoweredBy)) return 'Shopify'
+  if (/wix\.com|wixstatic|_wix/.test(h) || /wix/i.test(generator)) return 'Wix'
+  if (/squarespace/.test(h) || /squarespace/i.test(generator)) return 'Squarespace'
+  if (/jimdo/.test(h)) return 'Jimdo'
+  if (/webflow/.test(h) || /webflow/i.test(generator)) return 'Webflow'
+  if (/typo3/.test(h) || /typo3/i.test(generator)) return 'TYPO3'
+  if (/joomla/.test(h) || /joomla/i.test(generator)) return 'Joomla'
+  if (/drupal/.test(h) || /drupal/i.test(generator) || /drupal/i.test(xPoweredBy)) return 'Drupal'
+  if (/_next\/static|__next/.test(h)) return 'Next.js'
+  if (/_nuxt\//.test(h)) return 'Nuxt'
+  if (/data-reactroot|react/.test(h) && /webpack/.test(h)) return 'React'
+  if (/contao/.test(h) || /contao/i.test(generator)) return 'Contao'
+  if (/concrete5|concretecms/.test(h)) return 'Concrete CMS'
+  if (/processwire/.test(h)) return 'ProcessWire'
+  if (/webnode/.test(h)) return 'Webnode'
+  if (/weebly/.test(h)) return 'Weebly'
+  if (/duda|dudaone/.test(h)) return 'Duda'
+  if (/hubspot/.test(h)) return 'HubSpot CMS'
+  if (/ghost/i.test(generator)) return 'Ghost'
+  if (generator) return generator // unbekanntes CMS, aber Generator-Tag vorhanden
+  if (server && !/nginx|apache|cloudflare|microsoft-iis/i.test(server)) return server
+  return 'Unbekannt / individuell'
+}
+
 export async function crawlWebsite(inputUrl: string): Promise<CrawlResult> {
   const startResult = await fetchPage(inputUrl)
   if (!startResult) throw new Error('Startseite konnte nicht abgerufen werden')
@@ -183,6 +216,7 @@ export async function crawlWebsite(inputUrl: string): Promise<CrawlResult> {
     hasOpenGraph: $('meta[property^="og:"]').length > 0,
     hasStructuredData: $('script[type="application/ld+json"]').length > 0,
     h1Count: $('h1').length,
+    platform: detectPlatform(startHtml, startResult.headers),
   }
 
   const [sitemapRes, robotsRes] = await Promise.all([

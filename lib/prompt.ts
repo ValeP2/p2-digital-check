@@ -21,6 +21,7 @@ ${p.bodyText.slice(0, 2000)}
 
   const tech = data.technical
   const techSummary = [
+    `Plattform/CMS: ${tech.platform}`,
     `HTTPS: ${tech.https ? 'Ja' : 'NEIN – Sicherheitsrisiko'}`,
     `Sitemap: ${tech.hasSitemap ? 'Ja' : 'Nicht gefunden'}`,
     `robots.txt: ${tech.hasRobots ? 'Ja' : 'Nicht gefunden'}`,
@@ -94,7 +95,7 @@ Aktuelle Navigation benennen. Konkrete Verbesserungsvorschläge als Liste (neue 
 Konkrete Textzitate die verbessert werden sollten, mit einem «Besser wäre:»-Beispiel. Tippfehler konkret benennen.
 
 ### 9. Technik und Mobile
-Technische Befunde aus den Daten (HTTPS, Sitemap, robots.txt, Open Graph, JSON-LD, 404-Fehler, Bildoptimierung) und deren geschäftliche Auswirkung.
+Nenne zu Beginn die erkannte Plattform/das CMS. Dann technische Befunde aus den Daten (HTTPS, Sitemap, robots.txt, Open Graph, JSON-LD, 404-Fehler, Bildoptimierung) und deren geschäftliche Auswirkung.
 
 ### 10. Externe Sichtbarkeit
 Alle gefundenen externen Signale: Branchenverzeichnisse mit Rating, Social Media Aktivität, Konkurrenten, weitere Domains – konkret benennen was gefunden wurde.

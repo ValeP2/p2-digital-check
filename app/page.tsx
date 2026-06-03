@@ -299,30 +299,35 @@ function MarkdownRenderer({ content, scores }: { content: string; scores: Scores
   while (i < lines.length) {
     const line = lines[i]
 
-    if (line.startsWith('## ')) {
-      elements.push(
-        <h2 key={key++} style={{ color: CREAM, borderColor: CREAM_15 }}
-          className="text-2xl font-bold mt-14 mb-5 pb-4 border-b tracking-wide">
-          {line.slice(3)}
-        </h2>
-      )
-      lastWasH2 = true
-      i++
-    } else if (line.startsWith('### ')) {
-      const headingText = line.slice(4)
-      const entry = scores ? findScoreForHeading(headingText) : null
-      const showDivider = !lastWasH2
-      lastWasH2 = false
-      elements.push(
-        <div key={key++} id={entry ? entry.id : undefined} style={{ scrollMarginTop: '32px' }}>
-          {/* Trennlinie – nur wenn nicht direkt nach ## */}
-          {showDivider && <div className="mt-0 mb-8" style={{ borderTop: `1px solid ${CREAM_15}` }} />}
-          {entry && scores && <InlineScoreBar scoreKey={entry.key} label={entry.label} scores={scores} />}
-          <h3 style={{ color: CREAM }} className="text-xl font-semibold mb-3">
+    // Überschrift (## oder ### – Haiku ist inkonsistent, beide gleich behandeln)
+    if (line.startsWith('## ') || line.startsWith('### ')) {
+      const headingText = line.replace(/^#{2,4}\s+/, '')
+      const isMainTitle = /website analyse/i.test(headingText)
+
+      if (isMainTitle) {
+        // Haupttitel – grosse Überschrift, kein Score-Bar
+        elements.push(
+          <h2 key={key++} style={{ color: CREAM, borderColor: CREAM_15 }}
+            className="text-2xl font-bold mt-6 mb-5 pb-4 border-b tracking-wide">
             {headingText}
-          </h3>
-        </div>
-      )
+          </h2>
+        )
+        lastWasH2 = true
+      } else {
+        // Abschnitts-Heading – mit Score-Bar wenn erkannt
+        const entry = scores ? findScoreForHeading(headingText) : null
+        const showDivider = !lastWasH2
+        lastWasH2 = false
+        elements.push(
+          <div key={key++} id={entry ? entry.id : undefined} style={{ scrollMarginTop: '32px' }}>
+            {showDivider && <div className="mt-0 mb-8" style={{ borderTop: `1px solid ${CREAM_15}` }} />}
+            {entry && scores && <InlineScoreBar scoreKey={entry.key} label={entry.label} scores={scores} />}
+            <h3 style={{ color: CREAM }} className="text-xl font-semibold mb-3">
+              {headingText}
+            </h3>
+          </div>
+        )
+      }
       i++
 
     } else if (line.startsWith('- ')) {
@@ -494,41 +499,14 @@ export default function Home() {
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let buffer = '', fullText = ''
+    // Lokale Sammler für sauberes Speichern am Ende
+    let finalScores: Scores | null = null
+    let finalCost: CostInfo | null = null
+    let hadError = false
 
     while (true) {
       const { done, value } = await reader.read()
-      if (done) {
-        // Stream geschlossen – sicherstellen dass phase 'done' ist
-        setPhase(p => {
-          if (p !== 'error') {
-            // Analyse in History speichern
-            setReport(r => {
-              setScores(sc => {
-                setCost(co => {
-                  if (r && sc) {
-                    const entry: SavedAnalysis = {
-                      id: Date.now().toString(),
-                      url: url,
-                      companyName: extractCompanyName(r),
-                      date: new Date().toISOString(),
-                      scores: sc,
-                      report: r,
-                      cost: co,
-                    }
-                    saveToHistory(entry)
-                    setHistory(loadHistory())
-                  }
-                  return co
-                })
-                return sc
-              })
-              return r
-            })
-          }
-          return p === 'error' ? p : 'done'
-        })
-        break
-      }
+      if (done) break
       buffer += decoder.decode(value, { stream: true })
       const events = buffer.split('\n\n')
       buffer = events.pop() ?? ''
@@ -539,11 +517,29 @@ export default function Home() {
         const evType = evLine.slice(7).trim()
         const data = JSON.parse(dataLine.slice(5)) as string
         if (evType === 'status') { setStatusText(data); if (data.includes('Generiere')) setPhase('generating') }
-        else if (evType === 'scores') setScores(JSON.parse(data) as Scores)
+        else if (evType === 'scores') { finalScores = JSON.parse(data) as Scores; setScores(finalScores) }
         else if (evType === 'chunk') { fullText += data; setReport(fullText) }
-        else if (evType === 'cost') setCost(JSON.parse(data) as CostInfo)
+        else if (evType === 'cost') { finalCost = JSON.parse(data) as CostInfo; setCost(finalCost) }
         else if (evType === 'done') setPhase('done')
-        else if (evType === 'error') { setPhase('error'); setErrorMsg(data) }
+        else if (evType === 'error') { hadError = true; setPhase('error'); setErrorMsg(data) }
+      }
+    }
+
+    // Stream beendet – Phase finalisieren + in History speichern
+    if (!hadError) {
+      setPhase('done')
+      if (fullText && finalScores) {
+        const entry: SavedAnalysis = {
+          id: Date.now().toString(),
+          url,
+          companyName: extractCompanyName(fullText),
+          date: new Date().toISOString(),
+          scores: finalScores,
+          report: fullText,
+          cost: finalCost,
+        }
+        saveToHistory(entry)
+        setHistory(loadHistory())
       }
     }
   }
@@ -616,18 +612,23 @@ export default function Home() {
                 Alle anzeigen ({history.length}) →
               </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {history.slice(0, 5).map(a => (
+            <div className="flex flex-col gap-1.5">
+              {history.slice(0, 10).map(a => (
                 <button key={a.id} onClick={() => loadAnalysis(a)}
-                  className="flex items-center gap-2 text-sm rounded-full px-4 py-2 transition-all hover:opacity-80"
-                  style={{ background: 'rgba(235,234,204,0.08)', border: '1px solid rgba(235,234,204,0.12)', color: '#EBEACC' }}>
-                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ background: 'rgba(235,234,204,0.15)' }}>
+                  className="flex items-center gap-3 text-sm rounded-xl px-4 py-2.5 transition-all w-full text-left"
+                  style={{ background: 'rgba(235,234,204,0.06)', border: '1px solid rgba(235,234,204,0.1)', color: '#EBEACC' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.12)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.06)')}>
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ background: barColor(a.scores.gesamt), color: '#293263' }}>
                     {a.scores.gesamt}
                   </span>
-                  <span className="max-w-[180px] truncate">{a.companyName || new URL(a.url).hostname}</span>
-                  <span className="text-xs shrink-0" style={{ color: 'rgba(235,234,204,0.35)' }}>
-                    {new Date(a.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })}
+                  <span className="flex-1 truncate font-medium">{a.companyName || new URL(a.url).hostname}</span>
+                  <span className="text-xs truncate hidden sm:block" style={{ color: 'rgba(235,234,204,0.4)' }}>
+                    {new URL(a.url).hostname}
+                  </span>
+                  <span className="text-xs shrink-0" style={{ color: 'rgba(235,234,204,0.4)' }}>
+                    {new Date(a.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </span>
                 </button>
               ))}
