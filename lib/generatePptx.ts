@@ -160,48 +160,74 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
   })
   addFooter(s2, companyName)
 
-  // ── Slides 3+: Abschnitte ────────────────────────────────────────────────────
-  const CONTENT_TOP = 1.85   // nach Score-Header + Titel
-  const CONTENT_BOT = 6.85
+  // ── Slides 3+: Abschnitte (mit automatischem Splitting bei zu viel Inhalt) ────
+  const CONTENT_TOP = 1.85
+  const CONTENT_BOT = 6.9
   const CONTENT_H = CONTENT_BOT - CONTENT_TOP
+  const FONT = 12
+  const CHARS_PER_LINE = 95   // bei 12pt Avenir, CW 10.5"
+  const MAX_LINES = 22        // wieviele Zeilen passen in CONTENT_H bei 12pt
+
+  // Geschätzte Zeilenzahl eines Blocks (Text-Umbruch + Absatzabstand)
+  const blockLines = (b: Block): number => {
+    const wrapped = Math.max(1, Math.ceil(b.text.length / CHARS_PER_LINE))
+    return wrapped + 0.4 // Absatzabstand
+  }
+
+  // Blocks in Slide-Portionen aufteilen (an Block-Grenzen)
+  function splitBlocks(blocks: Block[]): Block[][] {
+    const pages: Block[][] = []
+    let cur: Block[] = []
+    let lines = 0
+    for (const b of blocks) {
+      const bl = blockLines(b)
+      if (lines + bl > MAX_LINES && cur.length > 0) {
+        pages.push(cur); cur = []; lines = 0
+      }
+      cur.push(b); lines += bl
+    }
+    if (cur.length > 0) pages.push(cur)
+    return pages.length ? pages : [[]]
+  }
 
   for (const section of sections) {
-    const slide = pptx.addSlide()
-    slide.background = { color: BG }
-
-    // Score-Bar-Header (dünn) – oben fixiert
-    if (section.scoreKey && section.scoreLabel) {
-      addScoreBar(slide, scores[section.scoreKey], section.scoreLabel, CX, 0.4, CW)
-      slide.addShape('rect', { x: CX, y: 0.78, w: CW, h: 0.012, fill: { color: FAINT }, line: { type: 'none' } })
-    }
-
-    // Titel
-    slide.addText(section.title, { x: CX, y: 1.0, w: CW, h: 0.7, fontSize: 26, bold: true, color: CREAM, fontFace: 'Avenir Next' })
-
-    // Inhalt als geordnete Absatz-Sequenz in EINER auto-skalierenden Box
+    const pages = splitBlocks(section.blocks)
     let numCounter = 0
-    const para = section.blocks.map(b => {
-      if (b.kind === 'bullet') {
-        return { text: b.text, options: { bullet: { code: '2013', indent: 18 }, color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4 } }
-      }
-      if (b.kind === 'num') {
-        numCounter++
-        return { text: `${numCounter}.  ${b.text}`, options: { color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4, indent: 18 } }
-      }
-      if (b.kind === 'note') {
-        return { text: b.text, options: { bold: true, color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceBefore: 8, paraSpaceAfter: 4 } }
-      }
-      return { text: b.text, options: { color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 6 } }
-    })
 
-    if (para.length > 0) {
-      slide.addText(para, {
-        x: CX, y: CONTENT_TOP, w: CW, h: CONTENT_H,
-        valign: 'top', wrap: true, autoFit: true,
+    pages.forEach((pageBlocks, pageIdx) => {
+      const slide = pptx.addSlide()
+      slide.background = { color: BG }
+
+      // Score-Bar-Header
+      if (section.scoreKey && section.scoreLabel) {
+        addScoreBar(slide, scores[section.scoreKey], section.scoreLabel, CX, 0.4, CW)
+        slide.addShape('rect', { x: CX, y: 0.78, w: CW, h: 0.012, fill: { color: FAINT }, line: { type: 'none' } })
+      }
+
+      // Titel (Folge-Slides: "(Fortsetzung)")
+      const titleText = pageIdx === 0 ? section.title : `${section.title} (Fortsetzung)`
+      slide.addText(titleText, { x: CX, y: 1.0, w: CW, h: 0.7, fontSize: 26, bold: true, color: CREAM, fontFace: 'Avenir Next' })
+
+      const para = pageBlocks.map(b => {
+        if (b.kind === 'bullet') {
+          return { text: b.text, options: { bullet: { code: '2013', indent: 18 }, color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4 } }
+        }
+        if (b.kind === 'num') {
+          numCounter++
+          return { text: `${numCounter}.  ${b.text}`, options: { color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4, indent: 18 } }
+        }
+        if (b.kind === 'note') {
+          return { text: b.text, options: { bold: true, color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceBefore: 8, paraSpaceAfter: 4 } }
+        }
+        return { text: b.text, options: { color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 6 } }
       })
-    }
 
-    addFooter(slide, companyName)
+      if (para.length > 0) {
+        slide.addText(para, { x: CX, y: CONTENT_TOP, w: CW, h: CONTENT_H, valign: 'top', wrap: true })
+      }
+
+      addFooter(slide, companyName)
+    })
   }
 
   const safeName = companyName.replace(/[^a-zA-Z0-9äöüÄÖÜ]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'Analyse'
