@@ -635,9 +635,9 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#293263', color: CREAM }}>
 
-      {/* Header – fixiert, scrollt mit */}
-      <header className="no-print px-8 pt-7 pb-5 flex items-center justify-between sticky top-0 z-20"
-        style={{ background: '#293263' }}>
+      {/* Header – fixiert, scrollt mit, fadet nach unten aus */}
+      <header className="no-print px-8 pt-7 pb-10 flex items-center justify-between sticky top-0 z-20"
+        style={{ background: 'linear-gradient(to bottom, #293263 0%, #293263 45%, rgba(41,50,99,0.85) 70%, rgba(41,50,99,0) 100%)' }}>
         <button onClick={() => { window.location.href = '/' }} className="transition-opacity hover:opacity-80 cursor-pointer" title="Zur Startseite">
           <LogoP2 height={30} />
         </button>
