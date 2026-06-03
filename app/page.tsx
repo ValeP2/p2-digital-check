@@ -236,10 +236,48 @@ function MarkdownRenderer({ content, scores }: { content: string; scores: Scores
         </ol>
       )
 
+    // Code-Block überspringen
+    } else if (line.startsWith('```')) {
+      i++
+      while (i < lines.length && !lines[i].startsWith('```')) i++
+      i++ // schliessende ``` überspringen
+
+    // Tabelle
+    } else if (line.startsWith('|')) {
+      const tableLines: string[] = []
+      while (i < lines.length && lines[i].startsWith('|')) {
+        tableLines.push(lines[i]); i++
+      }
+      const rows = tableLines.filter(l => !l.match(/^\|[-| :]+\|$/))
+      elements.push(
+        <div key={key++} className="my-3 overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            {rows.map((row, ridx) => {
+              const cells = row.split('|').filter(c => c.trim())
+              return (
+                <tr key={ridx} style={{ borderBottom: `1px solid ${CREAM_15}` }}>
+                  {cells.map((cell, cidx) => (
+                    <td key={cidx} className="py-1.5 pr-4 text-left align-top"
+                      style={{ color: ridx === 0 ? CREAM : CREAM_90, fontWeight: ridx === 0 ? 600 : 400 }}>
+                      {renderInline(cell.trim())}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+          </table>
+        </div>
+      )
+
+    // Horizontale Linie
+    } else if (line.trim() === '---' || line.trim() === '***') {
+      elements.push(<div key={key++} className="my-4" style={{ borderTop: `1px solid ${CREAM_15}` }} />)
+      i++
+
+    // Einschätzung (kursiv)
     } else if (line.startsWith('*') && line.endsWith('*') && line.length > 2 && !line.startsWith('**')) {
       elements.push(
-        <p key={key++} className="text-base font-semibold my-4"
-          style={{ color: CREAM }}>
+        <p key={key++} className="text-base font-semibold my-4" style={{ color: CREAM }}>
           {line.slice(1, -1)}
         </p>
       )
