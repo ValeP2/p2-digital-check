@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import LogoP2 from '../components/LogoP2'
 
 export default function LoginPage() {
   const [password, setPassword] = useState('')
@@ -25,8 +26,7 @@ export default function LoginPage() {
       style={{ background: '#293263', color: '#EBEACC' }}>
 
       <div className="mb-10 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-p2.svg" alt="P2 Logo" style={{ height: '32px', width: 'auto', margin: '0 auto' }} />
+        <LogoP2 height={32} />
         <div className="text-sm font-medium mt-5" style={{ color: 'rgba(235,234,204,0.5)' }}>
           Digital Check
         </div>

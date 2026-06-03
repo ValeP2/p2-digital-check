@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import LogoP2 from './components/LogoP2'
 
 type Phase = 'idle' | 'crawling' | 'generating' | 'done' | 'error'
 
@@ -356,8 +357,7 @@ export default function Home() {
 
       {/* Header */}
       <header className="no-print px-8 pt-7 pb-5 flex items-center justify-between">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-p2.svg" alt="P2 Logo" style={{ height: '30px', width: 'auto' }} />
+        <LogoP2 height={30} />
         <button onClick={handleLogout} className="text-sm transition-opacity hover:opacity-80"
           style={{ color: CREAM_40 }}>
           Abmelden
