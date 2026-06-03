@@ -16,14 +16,17 @@ interface Scores {
   technik: number; externe_sichtbarkeit: number; gesamt: number
 }
 
+type Block =
+  | { kind: 'p'; text: string }
+  | { kind: 'bullet'; text: string }
+  | { kind: 'num'; text: string }
+  | { kind: 'note'; text: string }
+
 interface Section {
   title: string
   scoreKey?: keyof Omit<Scores, 'gesamt'>
   scoreLabel?: string
-  body: string
-  bullets: string[]
-  numbered: string[]
-  einschaetzung: string
+  blocks: Block[]
 }
 
 const SCORE_MAP: { key: keyof Omit<Scores, 'gesamt'>; label: string }[] = [
@@ -77,54 +80,45 @@ function parseReport(markdown: string): { companyName: string; sections: Section
   let companyName = ''
   const sections: Section[] = []
   let current: Section | null = null
-  const bodyLines: string[] = []
-
-  const flush = () => {
-    if (current) {
-      current.body = bodyLines.join(' ').trim()
-      sections.push(current)
-      bodyLines.length = 0
-    }
-  }
 
   for (const line of lines) {
     const headingMatch = line.match(/^(#{2,4})\s+(.+)/)
     if (headingMatch) {
       const text = stripMd(headingMatch[2].trim())
       if (/website analyse/i.test(text)) {
-        // Haupttitel
         companyName = text.replace(/Website Analyse\s*[–-]\s*/i, '').trim()
       } else {
-        // Abschnitts-Überschrift (## oder ### – Haiku ist inkonsistent)
-        flush()
         const scoreEntry = findScoreKey(text)
-        current = { title: text, scoreKey: scoreEntry?.key, scoreLabel: scoreEntry?.label, body: '', bullets: [], numbered: [], einschaetzung: '' }
+        current = { title: text, scoreKey: scoreEntry?.key, scoreLabel: scoreEntry?.label, blocks: [] }
+        sections.push(current)
       }
     } else if (current) {
-      if (line.startsWith('- ')) {
-        current.bullets.push(stripMd(line.slice(2)))
+      const t = line.trim()
+      if (t === '' || t === '---' || t === '***') continue // Leerzeilen & Trenner überspringen
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        current.blocks.push({ kind: 'bullet', text: stripMd(line.slice(2)) })
       } else if (/^\d+\.\s/.test(line)) {
-        current.numbered.push(stripMd(line.replace(/^\d+\.\s/, '')))
-      } else if (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**')) {
-        current.einschaetzung = stripMd(line.slice(1, -1))
-      } else if (line.trim()) {
-        bodyLines.push(stripMd(line))
+        current.blocks.push({ kind: 'num', text: stripMd(line.replace(/^\d+\.\s/, '')) })
+      } else if (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**') && line.length > 2) {
+        current.blocks.push({ kind: 'note', text: stripMd(line.slice(1, -1)) })
+      } else {
+        current.blocks.push({ kind: 'p', text: stripMd(line) })
       }
     }
   }
-  flush()
   return { companyName, sections }
 }
 
 function addScoreBar(slide: PptxGenJS.Slide, score: number, label: string, x: number, y: number, w: number) {
   const c = barColor(score)
+  const trackW = w - 3.4 - 0.5
   // Label
   slide.addText(label, { x, y, w: 3.2, h: 0.3, fontSize: 10, color: DIM, fontFace: 'Avenir Next', valign: 'middle' })
-  // Track
-  slide.addShape('rect', { x: x + 3.4, y: y + 0.07, w: w - 3.4 - 0.5, h: 0.15, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
+  // Track (dünn, abgerundet)
+  slide.addShape('roundRect', { x: x + 3.4, y: y + 0.12, w: trackW, h: 0.06, rectRadius: 0.03, fill: { color: FAINT }, line: { type: 'none' } })
   // Fill
-  const fillW = Math.max(0.08, (w - 3.4 - 0.5) * score / 10)
-  slide.addShape('rect', { x: x + 3.4, y: y + 0.07, w: fillW, h: 0.15, fill: { color: c }, line: { color: c, width: 0 } })
+  const fillW = Math.max(0.06, trackW * score / 10)
+  slide.addShape('roundRect', { x: x + 3.4, y: y + 0.12, w: fillW, h: 0.06, rectRadius: 0.03, fill: { color: c }, line: { type: 'none' } })
   // Score
   slide.addText(`${score}`, { x: x + w - 0.4, y, w: 0.4, h: 0.3, fontSize: 13, bold: true, color: CREAM, fontFace: 'Avenir Next', align: 'right', valign: 'middle' })
 }
@@ -140,104 +134,79 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
   const pptx = new PptxGenJS()
   pptx.layout = 'LAYOUT_WIDE'
 
-  const { companyName, sections } = parseReport(markdown)
+  const { companyName: parsedName, sections } = parseReport(markdown)
+  const hostname = (() => { try { return new URL(inputUrl).hostname.replace(/^www\./, '') } catch { return inputUrl } })()
+  const companyName = parsedName || hostname
   const today = new Date().toLocaleDateString('de-CH')
 
-  // ── Slide 1: Titelfolie (vertikal zentriert) ────────────────────────────────
+  // ── Slide 1: Titelfolie ──────────────────────────────────────────────────────
   const s1 = pptx.addSlide()
   s1.background = { color: BG }
-  // Hauptblock vertikal zentriert: Block ~2.4" hoch, zentriert bei 7.5" → y=2.55
-  s1.addText('P2/ Digitalcheck', { x: CX, y: 2.3, w: CW, h: 0.5, fontSize: 13, color: DIM, fontFace: 'Avenir Next', bold: false })
-  s1.addText(companyName,        { x: CX, y: 2.85, w: CW, h: 1.2, fontSize: 42, bold: true, color: CREAM, fontFace: 'Avenir Next' })
-  s1.addText(inputUrl,           { x: CX, y: 4.1,  w: CW, h: 0.4, fontSize: 13, color: DIM, fontFace: 'Avenir Next' })
-  // Footer-Leiste unten fixiert
-  s1.addShape('rect', { x: CX, y: 6.3, w: CW, h: 0.03, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
-  s1.addText(today,                { x: CX,            y: 6.5, w: CW / 2, h: 0.35, fontSize: 11, color: DIM, fontFace: 'Avenir Next' })
-  s1.addText('P2/ Kommunikation AG', { x: CX + CW / 2, y: 6.5, w: CW / 2, h: 0.35, fontSize: 11, color: DIM, fontFace: 'Avenir Next', align: 'right' })
+  s1.addText('P2/ Digitalcheck', { x: CX, y: 2.5, w: CW, h: 1.3, fontSize: 54, bold: true, color: CREAM, fontFace: 'Avenir Next' })
+  s1.addText(companyName, { x: CX, y: 3.85, w: CW, h: 0.7, fontSize: 24, color: CREAM, fontFace: 'Avenir Next' })
+  s1.addText(inputUrl, { x: CX, y: 4.55, w: CW, h: 0.4, fontSize: 14, color: DIM, fontFace: 'Avenir Next' })
+  s1.addShape('rect', { x: CX, y: 6.4, w: CW, h: 0.012, fill: { color: FAINT }, line: { type: 'none' } })
+  s1.addText(today, { x: CX, y: 6.55, w: CW / 2, h: 0.35, fontSize: 11, color: DIM, fontFace: 'Avenir Next' })
+  s1.addText('P2/ Kommunikation AG', { x: CX + CW / 2, y: 6.55, w: CW / 2, h: 0.35, fontSize: 11, color: DIM, fontFace: 'Avenir Next', align: 'right' })
 
-  // ── Slide 2: Score-Übersicht (vertikal zentriert) ───────────────────────────
-  // 10 Zeilen × 0.48" = 4.8", Header 0.7", Footer 0.4" → total ~6.0" → start y=0.75
+  // ── Slide 2: Score-Übersicht ─────────────────────────────────────────────────
   const s2 = pptx.addSlide()
   s2.background = { color: BG }
   s2.addText('Gesamtbewertung', { x: CX, y: 0.65, w: CW - 2, h: 0.55, fontSize: 22, bold: true, color: CREAM, fontFace: 'Avenir Next' })
   s2.addText(`${scores.gesamt}/10`, { x: CX + CW - 2, y: 0.5, w: 2, h: 0.8, fontSize: 38, bold: true, color: barColor(scores.gesamt), fontFace: 'Avenir Next', align: 'right' })
-
-  const barStartY = 1.45
-  const barRowH = 0.48
+  const barStartY = 1.55, barRowH = 0.46
   SCORE_MAP.forEach(({ key, label }, idx) => {
     addScoreBar(s2, scores[key], label, CX, barStartY + idx * barRowH, CW)
   })
   addFooter(s2, companyName)
 
-  // ── Slides 3+: Abschnitte ───────────────────────────────────────────────────
-  // Verfügbarer Bereich: Score-Header ~0.85", Footer ~0.35" → Content: 0.85" – 6.9" = 6.05"
-  // Inhalt wird innerhalb dieses Bereichs vertikal zentriert
-  const CONTENT_TOP = 1.1    // nach Score-Bar-Header
-  const CONTENT_BOT = 6.75   // vor Footer
-  const CONTENT_H   = CONTENT_BOT - CONTENT_TOP
+  // ── Slides 3+: Abschnitte ────────────────────────────────────────────────────
+  const CONTENT_TOP = 1.85   // nach Score-Header + Titel
+  const CONTENT_BOT = 6.85
+  const CONTENT_H = CONTENT_BOT - CONTENT_TOP
 
   for (const section of sections) {
     const slide = pptx.addSlide()
     slide.background = { color: BG }
 
-    // Score-Bar-Header – immer oben fixiert
+    // Score-Bar-Header (dünn) – oben fixiert
     if (section.scoreKey && section.scoreLabel) {
-      addScoreBar(slide, scores[section.scoreKey], section.scoreLabel, CX, 0.38, CW)
-      slide.addShape('rect', { x: CX, y: 0.75, w: CW, h: 0.03, fill: { color: FAINT }, line: { color: FAINT, width: 0 } })
+      addScoreBar(slide, scores[section.scoreKey], section.scoreLabel, CX, 0.4, CW)
+      slide.addShape('rect', { x: CX, y: 0.78, w: CW, h: 0.012, fill: { color: FAINT }, line: { type: 'none' } })
     }
-
-    // Inhaltshöhe schätzen für vertikale Zentrierung
-    const titleH   = 0.85
-    const bodyH    = section.body ? 1.3 : 0
-    const bulletH  = section.bullets.length  > 0 ? Math.min(2.4, section.bullets.length  * 0.38) : 0
-    const numbH    = section.numbered.length > 0 ? Math.min(2.6, section.numbered.length * 0.40) : 0
-    const einschH  = section.einschaetzung ? 0.55 : 0
-    const gaps     = [bodyH, bulletH, numbH, einschH].filter(h => h > 0).length * 0.18
-
-    const totalH = titleH + bodyH + bulletH + numbH + einschH + gaps
-    // Zentriert im verfügbaren Raum
-    const startY = CONTENT_TOP + Math.max(0, (CONTENT_H - totalH) / 2)
-    let y = startY
 
     // Titel
-    slide.addText(section.title, { x: CX, y, w: CW, h: titleH, fontSize: 26, bold: true, color: CREAM, fontFace: 'Avenir Next' })
-    y += titleH + 0.18
+    slide.addText(section.title, { x: CX, y: 1.0, w: CW, h: 0.7, fontSize: 26, bold: true, color: CREAM, fontFace: 'Avenir Next' })
 
-    // Fliesstext
-    if (section.body) {
-      slide.addText(section.body, { x: CX, y, w: CW, h: bodyH, fontSize: 15, color: CREAM, fontFace: 'Avenir Next', wrap: true, valign: 'top' })
-      y += bodyH + 0.18
-    }
+    // Inhalt als geordnete Absatz-Sequenz in EINER auto-skalierenden Box
+    let numCounter = 0
+    const para = section.blocks.map(b => {
+      if (b.kind === 'bullet') {
+        return { text: b.text, options: { bullet: { code: '2013', indent: 18 }, color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4 } }
+      }
+      if (b.kind === 'num') {
+        numCounter++
+        return { text: `${numCounter}.  ${b.text}`, options: { color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4, indent: 18 } }
+      }
+      if (b.kind === 'note') {
+        return { text: b.text, options: { bold: true, color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceBefore: 8, paraSpaceAfter: 4 } }
+      }
+      return { text: b.text, options: { color: CREAM, fontSize: 13, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 6 } }
+    })
 
-    // Bullets
-    if (section.bullets.length > 0) {
-      const items = section.bullets.slice(0, 7).map(b => ({
-        text: b,
-        options: { bullet: { code: '2013', indent: 12 }, color: CREAM, fontSize: 14, fontFace: 'Avenir Next' },
-      }))
-      slide.addText(items, { x: CX, y, w: CW, h: bulletH, wrap: true })
-      y += bulletH + 0.18
-    }
-
-    // Nummerierte Liste
-    if (section.numbered.length > 0) {
-      const items = section.numbered.slice(0, 8).map((n, i) => ({
-        text: `${i + 1}.   ${n}`,
-        options: { color: CREAM, fontSize: 14, fontFace: 'Avenir Next' },
-      }))
-      slide.addText(items, { x: CX, y, w: CW, h: numbH, wrap: true })
-      y += numbH + 0.18
-    }
-
-    // Einschätzung (fett, leicht abgesetzt)
-    if (section.einschaetzung) {
-      slide.addText(section.einschaetzung, { x: CX, y, w: CW, h: einschH, fontSize: 14, bold: true, color: CREAM, fontFace: 'Avenir Next', wrap: true })
+    if (para.length > 0) {
+      slide.addText(para, {
+        x: CX, y: CONTENT_TOP, w: CW, h: CONTENT_H,
+        valign: 'top', wrap: true, autoFit: true,
+      })
     }
 
     addFooter(slide, companyName)
   }
 
-  const filename = `P2-Digitalcheck-${companyName.replace(/[^a-zA-Z0-9äöüÄÖÜ]/g, '-').slice(0, 40)}-${today.replace(/\./g, '-')}.pptx`
+  const safeName = companyName.replace(/[^a-zA-Z0-9äöüÄÖÜ]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'Analyse'
+  const dateStamp = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  const filename = `P2-Digitalcheck_${safeName}_${dateStamp}.pptx`
 
   // Serverseitig: als Node-Buffer zurückgeben (pptxgenjs läuft nativ in Node)
   const buffer = await pptx.write({ outputType: 'nodebuffer' }) as Buffer
