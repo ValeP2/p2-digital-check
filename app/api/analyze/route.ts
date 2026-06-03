@@ -109,14 +109,21 @@ export async function POST(req: NextRequest) {
         })
         addUsage('fast', scoreResponse.usage.input_tokens, scoreResponse.usage.output_tokens)
 
-        try {
-          const scoreText = scoreResponse.content[0].type === 'text' ? scoreResponse.content[0].text : '{}'
-          // JSON-Objekt aus dem Text extrahieren (robust gegen Begleittext)
-          const jsonMatch = scoreText.match(/\{[\s\S]*\}/)
-          const scores = JSON.parse(jsonMatch ? jsonMatch[0] : scoreText.replace(/```json|```/g, '').trim())
+        {
+          const scoreText = scoreResponse.content[0].type === 'text' ? scoreResponse.content[0].text : ''
+          // Robust: jede Zahl einzeln per Regex extrahieren (kein JSON.parse nötig)
+          const keys = ['positionierung','angebot','zielgruppe','vertrauen','conversion','seo','navigation','sprache','technik','externe_sichtbarkeit','gesamt'] as const
+          const scores: Record<string, number> = {}
+          for (const k of keys) {
+            const m = scoreText.match(new RegExp(`"?${k}"?\\s*[:=]\\s*(\\d+)`, 'i'))
+            scores[k] = m ? Math.min(10, Math.max(1, parseInt(m[1], 10))) : 5
+          }
+          // Gesamt notfalls aus Durchschnitt berechnen
+          if (!scoreText.match(/"?gesamt"?\s*[:=]\s*\d+/i)) {
+            const vals = keys.slice(0, 10).map(k => scores[k])
+            scores.gesamt = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
+          }
           send('scores', JSON.stringify(scores))
-        } catch (e) {
-          console.error('Score-Parsing fehlgeschlagen:', e)
         }
 
         // Schritt 3: Bericht in 4 parallelen Blöcken (je ~3-4 Abschnitte)
