@@ -382,7 +382,11 @@ export default function Home() {
 
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+      if (done) {
+        // Stream geschlossen – sicherstellen dass phase 'done' ist
+        setPhase(p => p === 'error' ? p : 'done')
+        break
+      }
       buffer += decoder.decode(value, { stream: true })
       const events = buffer.split('\n\n')
       buffer = events.pop() ?? ''
