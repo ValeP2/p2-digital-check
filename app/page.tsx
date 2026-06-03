@@ -502,6 +502,8 @@ export default function Home() {
   const [scores, setScores] = useState<Scores | null>(null)
   const [history, setHistory] = useState<SavedAnalysis[]>([])
   const [showArchive, setShowArchive] = useState(false)
+  const [truncated, setTruncated] = useState(false)
+  const [continuing, setContinuing] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setHistory(loadHistory()) }, [])
@@ -519,7 +521,7 @@ export default function Home() {
     e.preventDefault()
     if (!url.trim()) return
     setPhase('crawling'); setStatusText('Crawle Website...')
-    setReport(''); setErrorMsg(''); setCost(null); setScores(null)
+    setReport(''); setErrorMsg(''); setCost(null); setScores(null); setTruncated(false)
 
     const res = await fetch('/api/analyze', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -554,6 +556,7 @@ export default function Home() {
         else if (evType === 'scores') { finalScores = JSON.parse(data) as Scores; setScores(finalScores) }
         else if (evType === 'chunk') { fullText += data; setReport(fullText) }
         else if (evType === 'cost') { finalCost = JSON.parse(data) as CostInfo; setCost(finalCost) }
+        else if (evType === 'truncated') setTruncated(true)
         else if (evType === 'done') setPhase('done')
         else if (evType === 'error') { hadError = true; setPhase('error'); setErrorMsg(data) }
       }
@@ -575,6 +578,50 @@ export default function Home() {
         saveToHistory(entry)
         setHistory(loadHistory())
       }
+    }
+  }
+
+  async function handleContinue() {
+    setContinuing(true)
+    setTruncated(false)
+    try {
+      const res = await fetch('/api/continue', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, url }),
+      })
+      if (!res.ok || !res.body) throw new Error('Fortsetzung fehlgeschlagen')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = '', fullText = report
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
+        for (const event of events) {
+          const evLine = event.split('\n').find(l => l.startsWith('event:'))
+          const dataLine = event.split('\n').find(l => l.startsWith('data:'))
+          if (!evLine || !dataLine) continue
+          const evType = evLine.slice(7).trim()
+          const data = JSON.parse(dataLine.slice(5)) as string
+          if (evType === 'chunk') { fullText += data; setReport(fullText) }
+          else if (evType === 'truncated') setTruncated(true)
+        }
+      }
+      // Fortgesetzten Bericht in History aktualisieren
+      if (scores) {
+        const entry: SavedAnalysis = {
+          id: Date.now().toString(), url,
+          companyName: extractCompanyName(fullText),
+          date: new Date().toISOString(), scores, report: fullText, cost,
+        }
+        saveToHistory(entry); setHistory(loadHistory())
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setContinuing(false)
     }
   }
 
@@ -689,6 +736,20 @@ export default function Home() {
         {report && (
           <div ref={reportRef} className="pb-8 fade-in-up">
             <MarkdownRenderer content={report} scores={scores} />
+          </div>
+        )}
+
+        {/* Weiter-Button bei abgeschnittenem Bericht */}
+        {(truncated || continuing) && phase === 'done' && (
+          <div className="no-print flex flex-col items-center gap-3 py-6 mb-4">
+            <p className="text-sm text-center" style={{ color: CREAM_60 }}>
+              Der Bericht wurde wegen seiner Länge unterbrochen.
+            </p>
+            <button onClick={handleContinue} disabled={continuing}
+              className="rounded-full px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: CREAM, color: '#293263' }}>
+              {continuing ? 'Setze fort…' : 'Analyse fortsetzen →'}
+            </button>
           </div>
         )}
       </main>

@@ -172,13 +172,14 @@ Erstelle jetzt den vollständigen Analysebericht mit EXAKT dieser Struktur (verw
 
         const streamResponse = await client.messages.create({
           model: MODELS.report.id,
-          max_tokens: 8000,
+          max_tokens: 16000,
           system: SYS,
           messages: [{ role: 'user', content: reportPrompt }],
           stream: true,
         })
 
         let fullReport = ''
+        let stopReason: string | null = null
         for await (const chunk of streamResponse) {
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
             fullReport += chunk.delta.text
@@ -187,8 +188,9 @@ Erstelle jetzt den vollständigen Analysebericht mit EXAKT dieser Struktur (verw
           if (chunk.type === 'message_start' && chunk.message.usage) {
             addUsage('report', chunk.message.usage.input_tokens, 0)
           }
-          if (chunk.type === 'message_delta' && chunk.usage) {
-            addUsage('report', 0, chunk.usage.output_tokens)
+          if (chunk.type === 'message_delta') {
+            if (chunk.usage) addUsage('report', 0, chunk.usage.output_tokens)
+            if (chunk.delta.stop_reason) stopReason = chunk.delta.stop_reason
           }
         }
 
@@ -197,6 +199,8 @@ Erstelle jetzt den vollständigen Analysebericht mit EXAKT dieser Struktur (verw
           outputTokens: usage.outputTokens,
           chf: (usage.costUsd * USD_TO_CHF).toFixed(4),
         }))
+        // Bericht abgeschnitten? → Frontend kann "Weiter" anbieten
+        if (stopReason === 'max_tokens') send('truncated', '1')
         send('done', fullReport)
 
       } catch (err) {
