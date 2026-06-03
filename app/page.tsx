@@ -504,9 +504,23 @@ export default function Home() {
   const [showArchive, setShowArchive] = useState(false)
   const [truncated, setTruncated] = useState(false)
   const [continuing, setContinuing] = useState(false)
+  const [totalCost, setTotalCost] = useState<{ chf: number; count: number } | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setHistory(loadHistory()) }, [])
+
+  async function refreshTotalCost() {
+    try {
+      const res = await fetch('/api/total-cost')
+      if (res.ok) {
+        const d = await res.json()
+        if (!d.unavailable) setTotalCost({ chf: Number(d.chf), count: Number(d.count) })
+      }
+    } catch { /* ignore */ }
+  }
+  useEffect(() => { refreshTotalCost() }, [])
+  // Nach Abschluss einer Analyse aktualisieren
+  useEffect(() => { if (phase === 'done') refreshTotalCost() }, [phase])
 
   function loadAnalysis(a: SavedAnalysis) {
     setUrl(a.url)
@@ -774,7 +788,17 @@ export default function Home() {
             )}
           </div>
         )}
-        <div className="max-w-4xl mx-auto text-center text-sm">v0.1.0</div>
+        <div className="max-w-4xl mx-auto text-center text-sm flex items-center justify-center gap-3">
+          <span>v0.1.0</span>
+          {totalCost && (
+            <>
+              <span style={{ opacity: 0.5 }}>·</span>
+              <span title={`${totalCost.count} Analysen insgesamt`}>
+                Gesamtkosten: CHF {totalCost.chf.toFixed(2)} ({totalCost.count} Analysen)
+              </span>
+            </>
+          )}
+        </div>
       </footer>
 
       {showArchive && (

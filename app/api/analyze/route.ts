@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { crawlWebsite } from '@/lib/crawler'
 import { buildPrompt } from '@/lib/prompt'
+import { addCost } from '@/lib/costStore'
 
 export const maxDuration = 120
 
@@ -194,11 +195,14 @@ Erstelle jetzt den vollständigen Analysebericht mit EXAKT dieser Struktur (verw
           }
         }
 
+        const chfCost = usage.costUsd * USD_TO_CHF
         send('cost', JSON.stringify({
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
-          chf: (usage.costUsd * USD_TO_CHF).toFixed(4),
+          chf: chfCost.toFixed(4),
         }))
+        // Globalen Gesamtkosten-Zähler erhöhen (serverseitig, alle Nutzer)
+        await addCost(chfCost)
         // Bericht abgeschnitten? → Frontend kann "Weiter" anbieten
         if (stopReason === 'max_tokens') send('truncated', '1')
         send('done', fullReport)
