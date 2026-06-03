@@ -111,15 +111,21 @@ export async function POST(req: NextRequest) {
 
         try {
           const scoreText = scoreResponse.content[0].type === 'text' ? scoreResponse.content[0].text : '{}'
-          const scores = JSON.parse(scoreText.replace(/```json|```/g, '').trim())
+          // JSON-Objekt aus dem Text extrahieren (robust gegen Begleittext)
+          const jsonMatch = scoreText.match(/\{[\s\S]*\}/)
+          const scores = JSON.parse(jsonMatch ? jsonMatch[0] : scoreText.replace(/```json|```/g, '').trim())
           send('scores', JSON.stringify(scores))
-        } catch { /* Scores-Parsing fehlgeschlagen */ }
+        } catch (e) {
+          console.error('Score-Parsing fehlgeschlagen:', e)
+        }
 
         // Schritt 3: Bericht in 4 parallelen Blöcken (je ~3-4 Abschnitte)
         // → jeder Block ~5-8 Sekunden, total ~10-15 Sekunden statt 40+
         send('status', 'Generiere Analysebericht...')
 
-        const SYS = `Du bist ein erfahrener Digital-Stratege für Schweizer KMU. Schreibe prägnant und konkret. Zitiere echten Text der Website. Bullet-Listen für Beispiele. Jeder Abschnitt schliesst mit *Einschätzung* (kursiv in Sternchen). Schweizer Rechtschreibung (ss statt ß). Keine Einleitung, direkt mit ## oder ### beginnen.`
+        const SYS = `Du bist ein erfahrener Digital-Stratege für Schweizer KMU. Schreibe prägnant und konkret. Zitiere echten Text der Website. Bullet-Listen für Beispiele. Jeder Abschnitt schliesst mit *Einschätzung* (kursiv in Sternchen). Schweizer Rechtschreibung (ss statt ß). Keine Einleitung, direkt mit ## oder ### beginnen.
+
+WICHTIG: Verwende NIEMALS Code-Blöcke (drei Backticks) oder Backticks. Wenn du HTML- oder Code-Beispiele zeigst, schreibe sie als normalen Text in Anführungszeichen. Keine Markdown-Tabellen. Nur ##, ###, normale Absätze, Bullet-Listen (-) und nummerierte Listen.`
 
         const context = fullPrompt.slice(0, 5000)
 

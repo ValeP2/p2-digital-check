@@ -279,7 +279,9 @@ function InlineScoreBar({ scoreKey, label, scores }: { scoreKey: keyof Omit<Scor
 
 // ─── Markdown Renderer ─────────────────────────────────────────────────────────
 function renderInline(text: string): React.ReactNode {
-  return text.split(/(\*\*.*?\*\*)/g).map((part, i) =>
+  // einzelne Backticks (Inline-Code) entfernen – wir zeigen reinen Text
+  const clean = text.replace(/`/g, '')
+  return clean.split(/(\*\*.*?\*\*)/g).map((part, i) =>
     part.startsWith('**') && part.endsWith('**')
       ? <strong key={i} style={{ color: CREAM, fontWeight: 600 }}>{part.slice(2, -2)}</strong>
       : part
@@ -357,11 +359,10 @@ function MarkdownRenderer({ content, scores }: { content: string; scores: Scores
         </ol>
       )
 
-    // Code-Block überspringen
-    } else if (line.startsWith('```')) {
+    // Code-Fence: nur die ```-Zeile ignorieren, Inhalt normal weiterrendern
+    // (verhindert dass ein ungeschlossener Block den Rest verschluckt)
+    } else if (line.trim().startsWith('```')) {
       i++
-      while (i < lines.length && !lines[i].startsWith('```')) i++
-      i++ // schliessende ``` überspringen
 
     // Tabelle
     } else if (line.startsWith('|')) {
