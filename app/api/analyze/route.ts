@@ -115,36 +115,47 @@ export async function POST(req: NextRequest) {
           send('scores', JSON.stringify(scores))
         } catch { /* Scores-Parsing fehlgeschlagen */ }
 
-        // Schritt 3: Bericht mit Sonnet (Qualität bei vernünftigen Kosten)
+        // Schritt 3: Bericht in 4 parallelen Blöcken (je ~3-4 Abschnitte)
+        // → jeder Block ~5-8 Sekunden, total ~10-15 Sekunden statt 40+
         send('status', 'Generiere Analysebericht...')
-        const streamResponse = await client.messages.create({
-          model: MODELS.report.id,
-          max_tokens: 8000,
-          system: `Du bist ein erfahrener Digital-Stratege und Website-Analyst für Schweizer KMU.
-Dein Bericht muss KONKRET und SPEZIFISCH sein:
-- Zitiere echten Text von der Website (Tippfehler, schwache Formulierungen)
-- Nenne konkrete Zahlen (Wortanzahl, fehlende Meta-Daten, Bilder ohne Alt-Text)
-- Bullet-Listen für Beispiele (Gerätetypen, fehlende Inhalte, Verbesserungsvorschläge)
-- Vorher/Nachher-Beispiele bei schwachen Texten
-- Externe Quellen einbeziehen (local.ch, Social Media, Konkurrenz)
-- Jeder Abschnitt schliesst mit kursiver *Einschätzung*
-- Schweizer Rechtschreibung (ss statt ß)`,
-          messages: [{ role: 'user', content: fullPrompt }],
-          stream: true,
-        })
+
+        const SYS = `Du bist ein erfahrener Digital-Stratege für Schweizer KMU. Schreibe prägnant und konkret. Zitiere echten Text der Website. Bullet-Listen für Beispiele. Jeder Abschnitt schliesst mit *Einschätzung* (kursiv in Sternchen). Schweizer Rechtschreibung (ss statt ß). Keine Einleitung, direkt mit ## oder ### beginnen.`
+
+        const context = fullPrompt.slice(0, 5000)
+
+        const blocks = [
+          {
+            prompt: `${context}\n\nErstelle NUR diese Abschnitte (kein anderer Text):\n\n## Website Analyse – ${crawlData.companyName}\n\n### Ausgangslage\n### 1. Erster Eindruck und Positionierung\n### 2. Angebot und Verständlichkeit\n### 3. Zielgruppe und Kundenbedürfnis`
+          },
+          {
+            prompt: `${context}\n\nErstelle NUR diese Abschnitte:\n\n### 4. Vertrauen und Glaubwürdigkeit\n### 5. Kontakt und Conversion\n### 6. Inhalte und SEO`
+          },
+          {
+            prompt: `${context}\n\nErstelle NUR diese Abschnitte:\n\n### 7. Navigation und Struktur\n### 8. Sprache und Textqualität\n### 9. Technik und Mobile\n### 10. Externe Sichtbarkeit`
+          },
+          {
+            prompt: `${context}\n\nErstelle NUR diese Abschnitte:\n\n### Gesamtbewertung\n### Empfehlung im Rahmen des Digital Checks\n### Fazit`
+          },
+        ]
+
+        // Alle 4 Blöcke parallel generieren
+        const blockResults = await Promise.all(blocks.map(b =>
+          client.messages.create({
+            model: MODELS.report.id,
+            max_tokens: 1800,
+            system: SYS,
+            messages: [{ role: 'user', content: b.prompt }],
+          }).then(r => {
+            const text = r.content[0].type === 'text' ? r.content[0].text : ''
+            addUsage('report', r.usage.input_tokens, r.usage.output_tokens)
+            return text
+          })
+        ))
 
         let fullReport = ''
-        for await (const chunk of streamResponse) {
-          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-            fullReport += chunk.delta.text
-            send('chunk', chunk.delta.text)
-          }
-          if (chunk.type === 'message_start' && chunk.message.usage) {
-            addUsage('report', chunk.message.usage.input_tokens, 0)
-          }
-          if (chunk.type === 'message_delta' && chunk.usage) {
-            addUsage('report', 0, chunk.usage.output_tokens)
-          }
+        for (const blockText of blockResults) {
+          fullReport += blockText + '\n\n'
+          send('chunk', blockText + '\n\n')
         }
 
         send('cost', JSON.stringify({
