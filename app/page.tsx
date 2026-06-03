@@ -27,7 +27,19 @@ const STORAGE_KEY = 'p2-analyses'
 
 function loadHistory(): SavedAnalysis[] {
   if (typeof window === 'undefined') return []
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') } catch { return [] }
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    if (!Array.isArray(raw)) return []
+    // Nur valide Einträge behalten (schützt vor altem/kaputtem Format → kein Crash)
+    return raw.filter((a): a is SavedAnalysis =>
+      a && typeof a.url === 'string' && typeof a.id === 'string' &&
+      a.scores && typeof a.scores.gesamt === 'number' && typeof a.report === 'string'
+    )
+  } catch { return [] }
+}
+
+function safeHostname(url: string): string {
+  try { return new URL(url).hostname } catch { return url }
 }
 
 function saveToHistory(analysis: SavedAnalysis) {
@@ -107,7 +119,7 @@ function ArchiveModal({ onClose, onLoad }: { onClose: () => void; onLoad: (a: Sa
 
   const sorted = [...history].sort((a, b) => {
     if (sort === 'score') return b.scores.gesamt - a.scores.gesamt
-    if (sort === 'name') return a.companyName.localeCompare(b.companyName)
+    if (sort === 'name') return (a.companyName || a.url).localeCompare(b.companyName || b.url)
     return new Date(b.date).getTime() - new Date(a.date).getTime()
   })
 
@@ -623,9 +635,9 @@ export default function Home() {
                     style={{ background: barColor(a.scores.gesamt), color: '#293263' }}>
                     {a.scores.gesamt}
                   </span>
-                  <span className="flex-1 truncate font-medium">{a.companyName || new URL(a.url).hostname}</span>
+                  <span className="flex-1 truncate font-medium">{a.companyName || safeHostname(a.url)}</span>
                   <span className="text-xs truncate hidden sm:block" style={{ color: 'rgba(235,234,204,0.4)' }}>
-                    {new URL(a.url).hostname}
+                    {safeHostname(a.url)}
                   </span>
                   <span className="text-xs shrink-0" style={{ color: 'rgba(235,234,204,0.4)' }}>
                     {new Date(a.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
