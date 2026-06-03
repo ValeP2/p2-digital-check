@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import LogoP2 from './components/LogoP2'
 
 type Phase = 'idle' | 'crawling' | 'generating' | 'done' | 'error'
@@ -68,14 +68,29 @@ function findScoreForHeading(h: string) {
 // ─── Score Dashboard ───────────────────────────────────────────────────────────
 function ScoreDashboard({ scores }: { scores: Scores }) {
   const circ = 2 * Math.PI * 42
-  const pct = scores.gesamt / 10
+  const [animated, setAnimated] = useState(false)
+  const [displayScore, setDisplayScore] = useState(0)
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setAnimated(true), 80)
+    let current = 0
+    const target = scores.gesamt
+    const t2 = setInterval(() => {
+      current += 1
+      setDisplayScore(Math.min(current, target))
+      if (current >= target) clearInterval(t2)
+    }, 600 / target)
+    return () => { clearTimeout(t1); clearInterval(t2) }
+  }, [scores.gesamt])
 
   function scrollTo(id: string) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const ringFill = animated ? (scores.gesamt / 10) * circ : 0
+
   return (
-    <div className="mb-12">
+    <div className="mb-12 fade-in-up">
       {/* Gesamtscore – Ring */}
       <div className="flex flex-col items-center mb-10">
         <svg width="150" height="150" viewBox="0 0 100 100">
@@ -83,13 +98,14 @@ function ScoreDashboard({ scores }: { scores: Scores }) {
           <circle
             cx="50" cy="50" r="42" fill="none"
             stroke={barColor(scores.gesamt)} strokeWidth="5"
-            strokeDasharray={`${pct * circ} ${circ}`}
+            strokeDasharray={`${ringFill} ${circ}`}
             strokeLinecap="round"
             transform="rotate(-90 50 50)"
+            style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(0.4,0,0.2,1)' }}
           />
           <text x="50" y="47" textAnchor="middle" dominantBaseline="central"
             fontSize="28" fontWeight="700" fontFamily="Avenir Next, Avenir, sans-serif"
-            fill={CREAM}>{scores.gesamt}</text>
+            fill={CREAM}>{displayScore}</text>
           <text x="50" y="68" textAnchor="middle"
             fontSize="9" fontFamily="Avenir Next, Avenir, sans-serif"
             fill={CREAM_40}>von 10</text>
@@ -99,9 +115,9 @@ function ScoreDashboard({ scores }: { scores: Scores }) {
         </p>
       </div>
 
-      {/* Balken – Reihenfolge = Berichtsreihenfolge, klickbar */}
+      {/* Balken – animiert wachsend */}
       <div className="space-y-3 max-w-2xl mx-auto">
-        {SCORE_LABELS.map(({ key, label, id }) => {
+        {SCORE_LABELS.map(({ key, label, id }, idx) => {
           const s = scores[key]
           const c = barColor(s)
           return (
@@ -113,16 +129,19 @@ function ScoreDashboard({ scores }: { scores: Scores }) {
               onMouseEnter={e => (e.currentTarget.style.background = CREAM_08)}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
-              <span className="w-56 text-sm text-right shrink-0"
-                style={{ color: CREAM_90 }}>{label}</span>
+              <span className="w-56 text-sm text-right shrink-0" style={{ color: CREAM_90 }}>{label}</span>
               <div className="flex-1 h-2 rounded-full" style={{ background: CREAM_15 }}>
-                <div className="h-full rounded-full" style={{ width: `${s * 10}%`, backgroundColor: c }} />
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: animated ? `${s * 10}%` : '0%',
+                    backgroundColor: c,
+                    transition: `width 0.7s cubic-bezier(0.4,0,0.2,1) ${idx * 60}ms`,
+                  }}
+                />
               </div>
-              <span className="w-6 text-sm font-semibold shrink-0 text-right" style={{ color: CREAM }}>
-                {s}
-              </span>
-              <span className="text-sm opacity-0 group-hover:opacity-30 transition-opacity shrink-0"
-                style={{ color: CREAM }}>↓</span>
+              <span className="w-6 text-sm font-semibold shrink-0 text-right" style={{ color: CREAM }}>{s}</span>
+              <span className="text-sm opacity-0 group-hover:opacity-30 transition-opacity shrink-0" style={{ color: CREAM }}>↓</span>
             </button>
           )
         })}
@@ -457,7 +476,7 @@ export default function Home() {
 
         {/* Report */}
         {report && (
-          <div ref={reportRef} className="pb-8">
+          <div ref={reportRef} className="pb-8 fade-in-up">
             <MarkdownRenderer content={report} scores={scores} />
           </div>
         )}
