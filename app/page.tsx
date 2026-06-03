@@ -588,9 +588,12 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#293263', color: CREAM }}>
 
-      {/* Header */}
-      <header className="no-print px-8 pt-7 pb-5 flex items-center justify-between">
-        <LogoP2 height={30} />
+      {/* Header – fixiert, scrollt mit */}
+      <header className="no-print px-8 pt-7 pb-5 flex items-center justify-between sticky top-0 z-20"
+        style={{ background: '#293263' }}>
+        <button onClick={() => { window.location.href = '/' }} className="transition-opacity hover:opacity-80 cursor-pointer" title="Zur Startseite">
+          <LogoP2 height={30} />
+        </button>
         <button onClick={handleLogout} className="text-sm transition-opacity hover:opacity-80"
           style={{ color: CREAM_40 }}>
           Abmelden
