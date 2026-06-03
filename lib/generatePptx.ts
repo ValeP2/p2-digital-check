@@ -230,6 +230,32 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
     })
   }
 
+  // ── Letzter Slide: P2-Kontakt ────────────────────────────────────────────────
+  const sEnd = pptx.addSlide()
+  sEnd.background = { color: BG }
+  // Logo als Schriftzug (zuverlässig in PowerPoint)
+  sEnd.addText(
+    [
+      { text: 'P2', options: { fontSize: 60, bold: true, color: CREAM } },
+      { text: '/', options: { fontSize: 60, bold: true, color: CREAM } },
+    ],
+    { x: CX, y: 2.4, w: CW, h: 1.0, fontFace: 'Avenir Next', align: 'center' }
+  )
+  sEnd.addText('einfach kommunikation', {
+    x: CX, y: 3.45, w: CW, h: 0.4, fontSize: 14, color: DIM, fontFace: 'Avenir Next',
+    align: 'center', charSpacing: 2,
+  })
+  sEnd.addText(
+    [
+      { text: 'Silbergasse 6', options: { breakLine: true } },
+      { text: '2502 Biel/Bienne', options: { breakLine: true } },
+      { text: ' ', options: { breakLine: true, fontSize: 8 } },
+      { text: 'hello@p-zwei.ch', options: { breakLine: true } },
+      { text: 'www.p-zwei.ch', options: { breakLine: true } },
+    ],
+    { x: CX, y: 4.4, w: CW, h: 2.0, fontSize: 14, color: CREAM, fontFace: 'Avenir Next', align: 'center', lineSpacingMultiple: 1.3 }
+  )
+
   const safeName = companyName.replace(/[^a-zA-Z0-9äöüÄÖÜ]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'Analyse'
   const dateStamp = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
   const filename = `P2-Digitalcheck_${safeName}_${dateStamp}.pptx`
