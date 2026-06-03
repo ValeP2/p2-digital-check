@@ -4,7 +4,7 @@ import { crawlWebsite } from '@/lib/crawler'
 import { buildPrompt } from '@/lib/prompt'
 import { addCost } from '@/lib/costStore'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 // Modelle und Preise pro 1M Tokens (USD)
 // Alles Haiku → ~CHF 0.05-0.10 pro Analyse

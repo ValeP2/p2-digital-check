@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 const MODEL = 'claude-haiku-4-5-20251001'
 
