@@ -75,6 +75,23 @@ function stripMd(text: string): string {
   return text.replace(/\*\*/g, '').replace(/\*/g, '').trim()
 }
 
+// Bereinigt Text, behält aber **fett**-Markierungen für Rich-Text
+function cleanKeepBold(text: string): string {
+  return text.replace(/`/g, '').trim()
+}
+
+// Teilt einen Text an **...** in Rich-Text-Runs auf (bold / normal)
+function splitBold(text: string, base: Record<string, unknown>): Array<Record<string, unknown>> {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(p => p !== '')
+  if (parts.length === 0) return [{ text: ' ', options: { ...base } }]
+  return parts.map(p => {
+    if (p.startsWith('**') && p.endsWith('**')) {
+      return { text: p.slice(2, -2), options: { ...base, bold: true } }
+    }
+    return { text: p, options: { ...base } }
+  })
+}
+
 function parseReport(markdown: string): { companyName: string; sections: Section[] } {
   const lines = markdown.split('\n')
   let companyName = ''
@@ -96,13 +113,13 @@ function parseReport(markdown: string): { companyName: string; sections: Section
       const t = line.trim()
       if (t === '' || t === '---' || t === '***') continue // Leerzeilen & Trenner überspringen
       if (line.startsWith('- ') || line.startsWith('* ')) {
-        current.blocks.push({ kind: 'bullet', text: stripMd(line.slice(2)) })
+        current.blocks.push({ kind: 'bullet', text: cleanKeepBold(line.slice(2)) })
       } else if (/^\d+\.\s/.test(line)) {
-        current.blocks.push({ kind: 'num', text: stripMd(line.replace(/^\d+\.\s/, '')) })
+        current.blocks.push({ kind: 'num', text: cleanKeepBold(line.replace(/^\d+\.\s/, '')) })
       } else if (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**') && line.length > 2) {
-        current.blocks.push({ kind: 'note', text: stripMd(line.slice(1, -1)) })
+        current.blocks.push({ kind: 'note', text: cleanKeepBold(line.slice(1, -1)) })
       } else {
-        current.blocks.push({ kind: 'p', text: stripMd(line) })
+        current.blocks.push({ kind: 'p', text: cleanKeepBold(line) })
       }
     }
   }
@@ -208,19 +225,31 @@ export async function generatePptx(markdown: string, scores: Scores, inputUrl: s
       const titleText = pageIdx === 0 ? section.title : `${section.title} (Fortsetzung)`
       slide.addText(titleText, { x: CX, y: 1.0, w: CW, h: 0.7, fontSize: 26, bold: true, color: CREAM, fontFace: 'Avenir Next' })
 
-      const para = pageBlocks.map(b => {
+      const para: Array<Record<string, unknown>> = []
+      for (const b of pageBlocks) {
+        const baseFont = { color: CREAM, fontSize: FONT, fontFace: 'Avenir Next' }
+        let runs: Array<Record<string, unknown>>
+
         if (b.kind === 'bullet') {
-          return { text: b.text, options: { bullet: { code: '2013', indent: 18 }, color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4 } }
-        }
-        if (b.kind === 'num') {
+          runs = splitBold(b.text, baseFont)
+          ;(runs[0].options as Record<string, unknown>).bullet = { code: '2013', indent: 18 }
+          ;(runs[runs.length - 1].options as Record<string, unknown>).breakLine = true
+          ;(runs[runs.length - 1].options as Record<string, unknown>).paraSpaceAfter = 4
+        } else if (b.kind === 'num') {
           numCounter++
-          return { text: `${numCounter}.  ${b.text}`, options: { color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 4, indent: 18 } }
+          runs = [{ text: `${numCounter}.  `, options: { ...baseFont, indent: 18 } }, ...splitBold(b.text, baseFont)]
+          ;(runs[runs.length - 1].options as Record<string, unknown>).breakLine = true
+          ;(runs[runs.length - 1].options as Record<string, unknown>).paraSpaceAfter = 4
+        } else if (b.kind === 'note') {
+          // Einschätzung: komplett fett
+          runs = [{ text: b.text.replace(/\*\*/g, ''), options: { ...baseFont, bold: true, breakLine: true, paraSpaceBefore: 8, paraSpaceAfter: 4 } }]
+        } else {
+          runs = splitBold(b.text, baseFont)
+          ;(runs[runs.length - 1].options as Record<string, unknown>).breakLine = true
+          ;(runs[runs.length - 1].options as Record<string, unknown>).paraSpaceAfter = 6
         }
-        if (b.kind === 'note') {
-          return { text: b.text, options: { bold: true, color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceBefore: 8, paraSpaceAfter: 4 } }
-        }
-        return { text: b.text, options: { color: CREAM, fontSize: FONT, fontFace: 'Avenir Next', breakLine: true, paraSpaceAfter: 6 } }
-      })
+        para.push(...runs)
+      }
 
       if (para.length > 0) {
         slide.addText(para, { x: CX, y: CONTENT_TOP, w: CW, h: CONTENT_H, valign: 'top', wrap: true })
