@@ -183,13 +183,17 @@ export function MarkdownRenderer({ content, scores }: { content: string; scores:
           ))}
         </ul>
       )
-    } else if (/^\d+\.\s/.test(line)) {
+    } else if (/^\*?\*?\d+\.\s/.test(line)) {
+      const isNum = (l: string) => /^\*?\*?\d+\.\s/.test(l.trimStart())
+      const isSub = (l: string) => /^(\s+[-•]|[-•]\s|\s+\d+\.\s)/.test(l) || (l.startsWith('   ') && l.trim().length > 0 && !isNum(l))
+      const extractNum = (l: string) => l.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^\d+\.\s*/, '').trim()
+      const extractSub = (l: string) => l.replace(/^[\s•\-]+/, '').trim()
       type NumItem = { text: string; bullets: string[] }
       const items: NumItem[] = []
       while (i < lines.length) {
-        if (/^\d+\.\s/.test(lines[i])) { items.push({ text: lines[i].replace(/^\d+\.\s/, ''), bullets: [] }); i++ }
-        else if (lines[i].startsWith('- ') && items.length > 0) { items[items.length - 1].bullets.push(lines[i].slice(2)); i++ }
-        else if (lines[i].trim() === '') { const nx = lines[i+1]?.trimStart() ?? ''; if (/^\d+\.\s/.test(nx) || nx.startsWith('- ')) i++; else break }
+        if (isNum(lines[i])) { items.push({ text: extractNum(lines[i]), bullets: [] }); i++ }
+        else if (isSub(lines[i]) && items.length > 0) { const s = extractSub(lines[i]); if (s) items[items.length-1].bullets.push(s); i++ }
+        else if (lines[i].trim() === '') { const nx = lines[i+1]?.trimStart() ?? ''; if (isNum(nx) || /^[-•\s]/.test(nx)) i++; else break }
         else break
       }
       elements.push(

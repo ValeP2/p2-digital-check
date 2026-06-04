@@ -367,21 +367,27 @@ function MarkdownRenderer({ content, scores }: { content: string; scores: Scores
         </ul>
       )
 
-    } else if (/^\d+\.\s/.test(line)) {
-      // Nummerierte Liste mit optionalen Sub-Bullets zwischen den Punkten
+    } else if (/^\*?\*?\d+\.\s/.test(line)) {
+      // Nummerierte Liste – erkennt: "1. text", "**1. text**", "**1. text"
+      // Sub-Bullets: "- text", "• text", "   • text", "   - text"
+      const isNum = (l: string) => /^\*?\*?\d+\.\s/.test(l.trimStart())
+      const isSub = (l: string) => /^(\s+[-•]|[-•]\s|\s+\d+\.\s)/.test(l) || (l.startsWith('   ') && l.trim().length > 0 && !isNum(l))
+      const extractNum = (l: string) => l.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^\d+\.\s*/, '').trim()
+      const extractSub = (l: string) => l.replace(/^[\s•\-]+/, '').trim()
+
       type NumItem = { text: string; bullets: string[] }
       const items: NumItem[] = []
       while (i < lines.length) {
-        if (/^\d+\.\s/.test(lines[i])) {
-          items.push({ text: lines[i].replace(/^\d+\.\s/, ''), bullets: [] })
+        if (isNum(lines[i])) {
+          items.push({ text: extractNum(lines[i]), bullets: [] })
           i++
-        } else if ((lines[i].startsWith('- ')) && items.length > 0) {
-          items[items.length - 1].bullets.push(lines[i].slice(2))
+        } else if (isSub(lines[i]) && items.length > 0) {
+          const sub = extractSub(lines[i])
+          if (sub) items[items.length - 1].bullets.push(sub)
           i++
         } else if (lines[i].trim() === '') {
-          // Leerzeile: weiterschauen ob noch nummerierter Punkt oder Bullet kommt
           const next = lines[i + 1]?.trimStart() ?? ''
-          if (/^\d+\.\s/.test(next) || next.startsWith('- ')) { i++ }
+          if (isNum(next) || /^[-•\s]/.test(next)) i++
           else break
         } else {
           break
