@@ -184,19 +184,33 @@ export function MarkdownRenderer({ content, scores }: { content: string; scores:
         </ul>
       )
     } else if (/^\d+\.\s/.test(line)) {
-      const items: string[] = []
+      type NumItem = { text: string; bullets: string[] }
+      const items: NumItem[] = []
       while (i < lines.length) {
-        if (/^\d+\.\s/.test(lines[i])) { items.push(lines[i].replace(/^\d+\.\s/, '')); i++ }
-        else if (lines[i].trim() === '' && i + 1 < lines.length && /^\d+\.\s/.test(lines[i + 1])) i++
+        if (/^\d+\.\s/.test(lines[i])) { items.push({ text: lines[i].replace(/^\d+\.\s/, ''), bullets: [] }); i++ }
+        else if (lines[i].startsWith('- ') && items.length > 0) { items[items.length - 1].bullets.push(lines[i].slice(2)); i++ }
+        else if (lines[i].trim() === '') { const nx = lines[i+1]?.trimStart() ?? ''; if (/^\d+\.\s/.test(nx) || nx.startsWith('- ')) i++; else break }
         else break
       }
       elements.push(
-        <ol key={key++} className="space-y-2.5 my-3 ml-1 list-none">
+        <ol key={key++} className="space-y-4 my-3 ml-1 list-none">
           {items.map((item, idx) => (
-            <li key={idx} className="flex gap-4 text-base leading-relaxed" style={{ color: CREAM_90 }}>
-              <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5"
-                style={{ background: CREAM_15, color: CREAM }}>{idx + 1}</span>
-              <span>{renderInline(item)}</span>
+            <li key={idx}>
+              <div className="flex gap-4 text-base leading-relaxed" style={{ color: CREAM_90 }}>
+                <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5"
+                  style={{ background: CREAM_15, color: CREAM }}>{idx + 1}</span>
+                <span>{renderInline(item.text)}</span>
+              </div>
+              {item.bullets.length > 0 && (
+                <ul className="ml-10 mt-1.5 space-y-1">
+                  {item.bullets.map((b, bi) => (
+                    <li key={bi} className="flex gap-2 text-sm leading-relaxed" style={{ color: CREAM_90 }}>
+                      <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: CREAM_40 }} />
+                      <span>{renderInline(b)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ol>
