@@ -32,10 +32,12 @@ export async function POST(req: NextRequest) {
 
   console.log('[intake] body:', JSON.stringify(body))
 
-  // URL aus verschiedenen möglichen Feldnamen lesen (je nachdem wie Framer das Feld benennt)
-  const rawUrl = body.url || body.URL || body.website || body.Website ||
+  // URL aus verschiedenen möglichen Feldnamen lesen
+  // Framer-Feldname laut Mail: "Website URL"
+  const rawUrl = body['Website URL'] || body['website url'] || body['Website-URL'] ||
+    body.url || body.URL || body.website || body.Website ||
     body.website_url || body.domain || body.link ||
-    Object.values(body).find(v => typeof v === 'string' && v.includes('.')) || ''
+    Object.values(body).find(v => typeof v === 'string' && (v.startsWith('http') || v.includes('.'))) || ''
 
   let url = rawUrl.trim()
   if (!url) return NextResponse.json({ error: 'keine url gefunden', body }, { status: 400 })
