@@ -11,17 +11,34 @@ function randomId(): string {
 }
 
 export async function POST(req: NextRequest) {
-  // Secret prüfen
-  const secret = req.headers.get('x-intake-secret') || new URL(req.url).searchParams.get('secret')
-  if (!process.env.INTAKE_SECRET || secret !== process.env.INTAKE_SECRET) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  // Secret prüfen – Framer sendet es als x-framer-secret oder x-intake-secret
+  const secret =
+    req.headers.get('x-intake-secret') ||
+    req.headers.get('x-framer-secret') ||
+    req.headers.get('x-webhook-secret') ||
+    req.headers.get('x-framer-webhook-secret') ||
+    new URL(req.url).searchParams.get('secret')
+
+  // Debug-Log damit wir sehen was Framer schickt
+  console.log('[intake] headers:', Object.fromEntries(req.headers.entries()))
+
+  if (process.env.INTAKE_SECRET && secret !== process.env.INTAKE_SECRET) {
+    console.log('[intake] unauthorized, secret:', secret)
+    return NextResponse.json({ error: 'unauthorized', received_secret: secret }, { status: 401 })
   }
 
-  let body: { url?: string }
+  let body: Record<string, string>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
 
-  let url = (body.url || '').trim()
-  if (!url) return NextResponse.json({ error: 'keine url' }, { status: 400 })
+  console.log('[intake] body:', JSON.stringify(body))
+
+  // URL aus verschiedenen möglichen Feldnamen lesen (je nachdem wie Framer das Feld benennt)
+  const rawUrl = body.url || body.URL || body.website || body.Website ||
+    body.website_url || body.domain || body.link ||
+    Object.values(body).find(v => typeof v === 'string' && v.includes('.')) || ''
+
+  let url = rawUrl.trim()
+  if (!url) return NextResponse.json({ error: 'keine url gefunden', body }, { status: 400 })
   if (!url.startsWith('http')) url = `https://${url}`
   try { new URL(url) } catch { return NextResponse.json({ error: 'ungültige url' }, { status: 400 }) }
 
