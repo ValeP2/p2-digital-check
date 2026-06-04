@@ -19,18 +19,12 @@ export async function POST(req: NextRequest) {
     req.headers.get('x-framer-webhook-secret') ||
     new URL(req.url).searchParams.get('secret')
 
-  // Debug-Log damit wir sehen was Framer schickt
-  console.log('[intake] headers:', Object.fromEntries(req.headers.entries()))
-
   if (process.env.INTAKE_SECRET && secret !== process.env.INTAKE_SECRET) {
-    console.log('[intake] unauthorized, secret:', secret)
-    return NextResponse.json({ error: 'unauthorized', received_secret: secret }, { status: 401 })
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
   let body: Record<string, string>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
-
-  console.log('[intake] body:', JSON.stringify(body))
 
   // URL aus verschiedenen möglichen Feldnamen lesen
   // Framer-Feldname laut Mail: "Website URL"
