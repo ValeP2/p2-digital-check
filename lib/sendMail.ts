@@ -5,7 +5,9 @@ const resend = apiKey ? new Resend(apiKey) : null
 
 // Absender: bis p-zwei.ch bei Resend verifiziert ist, Resend-Testdomain nutzen
 const FROM = process.env.MAIL_FROM || 'P2 Digitalcheck <onboarding@resend.dev>'
-const TO = process.env.MAIL_TO || 'hello@p-zwei.ch'
+// Mehrere Adressen kommagetrennt möglich: "a@b.ch, c@d.ch"
+const TO: string[] = (process.env.MAIL_TO || 'hello@p-zwei.ch')
+  .split(',').map(s => s.trim()).filter(Boolean)
 
 export async function sendAnalysisMail(opts: {
   companyName: string
