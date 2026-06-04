@@ -6,6 +6,7 @@ export function proxy(req: NextRequest) {
   // Öffentlich erreichbar: Login, Auth, geteilte Analyse-Seiten (/a/...), Intake-Webhook
   if (
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/forgot-password') ||
     pathname.startsWith('/api/intake') ||
     pathname.startsWith('/api/export-pptx-public') ||
     pathname.startsWith('/a/') ||
