@@ -811,7 +811,7 @@ export default function Home() {
           </div>
         )}
         <div className="max-w-4xl mx-auto text-center text-sm flex items-center justify-center gap-3">
-          <span>v0.1.0</span>
+          <span>v1.0.0</span>
           {totalCost && (
             <>
               <span style={{ opacity: 0.5 }}>·</span>
