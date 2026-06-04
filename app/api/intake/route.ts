@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { after } from 'next/server'
 import { performAnalysis } from '@/lib/performAnalysis'
 import { saveAnalysis } from '@/lib/analysisStore'
 import { sendAnalysisMail } from '@/lib/sendMail'
@@ -12,7 +11,7 @@ function randomId(): string {
 }
 
 export async function POST(req: NextRequest) {
-  // Secret prüfen (Header "x-intake-secret" oder ?secret=)
+  // Secret prüfen
   const secret = req.headers.get('x-intake-secret') || new URL(req.url).searchParams.get('secret')
   if (!process.env.INTAKE_SECRET || secret !== process.env.INTAKE_SECRET) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -22,32 +21,47 @@ export async function POST(req: NextRequest) {
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
 
   let url = (body.url || '').trim()
-  if (!url) return NextResponse.json({ error: 'keine url im formular' }, { status: 400 })
+  if (!url) return NextResponse.json({ error: 'keine url' }, { status: 400 })
   if (!url.startsWith('http')) url = `https://${url}`
   try { new URL(url) } catch { return NextResponse.json({ error: 'ungültige url' }, { status: 400 }) }
 
   const id = randomId()
-  const origin = new URL(req.url).origin
+  const origin = req.headers.get('x-forwarded-host')
+    ? `https://${req.headers.get('x-forwarded-host')}`
+    : new URL(req.url).origin
   const link = `${origin}/a/${id}`
 
-  // Sofort antworten, Analyse läuft im Hintergrund weiter
-  after(async () => {
-    try {
-      const result = await performAnalysis(url)
-      await saveAnalysis({
-        id, url,
-        companyName: result.companyName,
-        date: new Date().toISOString(),
-        scores: result.scores,
-        report: result.report,
-        cost: { chf: result.chf },
-      })
-      await addCost(parseFloat(result.chf))
-      await sendAnalysisMail({ companyName: result.companyName, url, score: result.scores.gesamt, link })
-    } catch (e) {
-      console.error('[intake] Analyse fehlgeschlagen:', e)
-    }
-  })
+  try {
+    // Analyse synchron durchführen (maxDuration=300s reicht)
+    const result = await performAnalysis(url)
 
-  return NextResponse.json({ ok: true, id, link }, { status: 202 })
+    await saveAnalysis({
+      id, url,
+      companyName: result.companyName,
+      date: new Date().toISOString(),
+      scores: result.scores,
+      report: result.report,
+      cost: { chf: result.chf },
+    })
+
+    await addCost(parseFloat(result.chf))
+
+    const mailSent = await sendAnalysisMail({
+      companyName: result.companyName,
+      url,
+      score: result.scores.gesamt,
+      link,
+    })
+
+    return NextResponse.json({
+      ok: true, id, link,
+      mailSent,
+      score: result.scores.gesamt,
+      company: result.companyName,
+    }, { status: 200 })
+
+  } catch (e) {
+    console.error('[intake] Fehler:', e)
+    return NextResponse.json({ error: 'analyse fehlgeschlagen', detail: String(e) }, { status: 500 })
+  }
 }
