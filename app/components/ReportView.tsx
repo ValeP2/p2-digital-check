@@ -59,11 +59,14 @@ function findScoreForHeading(h: string) {
 }
 function renderInline(text: string): React.ReactNode {
   const clean = text.replace(/`/g, '')
-  return clean.split(/(\*\*.*?\*\*)/g).map((part, i) =>
-    part.startsWith('**') && part.endsWith('**')
-      ? <strong key={i} style={{ color: CREAM, fontWeight: 600 }}>{part.slice(2, -2)}</strong>
-      : part
-  )
+  const parts = clean.split(/(\*\*[^*]+?\*\*|\*\*[^*]+$)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
+      return <strong key={i} style={{ color: CREAM, fontWeight: 600 }}>{part.slice(2, -2)}</strong>
+    if (part.startsWith('**'))
+      return <strong key={i} style={{ color: CREAM, fontWeight: 600 }}>{part.slice(2)}</strong>
+    return part
+  })
 }
 
 function InlineScoreBar({ scoreKey, label, scores }: { scoreKey: keyof Omit<Scores, 'gesamt'>; label: string; scores: Scores }) {
