@@ -550,7 +550,8 @@ export default function Home() {
   useEffect(() => {
     setHistory(loadHistory())
     // Eingeloggten User aus Cookie lesen
-    const userEmail = document.cookie.split(';').find(c => c.trim().startsWith('p2-user='))?.split('=')[1] ?? ''
+    const rawCookie = document.cookie.split(';').find(c => c.trim().startsWith('p2-user='))
+    const userEmail = rawCookie ? decodeURIComponent(rawCookie.trim().slice('p2-user='.length)) : ''
     setCurrentUserEmail(userEmail)
     setIsAdminUser(['vale@p-zwei.ch','andreas@p-zwei.ch'].includes(userEmail))
   }, [])
