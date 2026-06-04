@@ -3,7 +3,15 @@ import { NextRequest, NextResponse } from 'next/server'
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  if (pathname.startsWith('/api/auth') || pathname === '/login' || pathname.startsWith('/_next') || pathname.startsWith('/favicon')) {
+  // Öffentlich erreichbar: Login, Auth, geteilte Analyse-Seiten (/a/...), Intake-Webhook
+  if (
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/intake') ||
+    pathname.startsWith('/a/') ||
+    pathname === '/login' ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon')
+  ) {
     return NextResponse.next()
   }
 
