@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import LogoP2 from './components/LogoP2'
+import UserManager from './components/UserManager'
 
 type Phase = 'idle' | 'crawling' | 'generating' | 'done' | 'error'
 
@@ -536,6 +537,9 @@ export default function Home() {
   const [scores, setScores] = useState<Scores | null>(null)
   const [history, setHistory] = useState<SavedAnalysis[]>([])
   const [showArchive, setShowArchive] = useState(false)
+  const [showUserManager, setShowUserManager] = useState(false)
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
+  const [isAdminUser, setIsAdminUser] = useState(false)
   const [truncated, setTruncated] = useState(false)
   const [continuing, setContinuing] = useState(false)
   const [totalCost, setTotalCost] = useState<{ chf: number; count: number } | null>(null)
@@ -543,7 +547,13 @@ export default function Home() {
   const [dupStep, setDupStep] = useState<'first' | 'overwrite' | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setHistory(loadHistory()) }, [])
+  useEffect(() => {
+    setHistory(loadHistory())
+    // Eingeloggten User aus Cookie lesen
+    const userEmail = document.cookie.split(';').find(c => c.trim().startsWith('p2-user='))?.split('=')[1] ?? ''
+    setCurrentUserEmail(userEmail)
+    setIsAdminUser(['vale@p-zwei.ch','andreas@p-zwei.ch'].includes(userEmail))
+  }, [])
 
   async function refreshTotalCost() {
     try {
@@ -703,10 +713,20 @@ export default function Home() {
         <button onClick={() => { window.location.href = '/' }} className="transition-opacity hover:opacity-80 cursor-pointer" title="Zur Startseite">
           <LogoP2 height={30} />
         </button>
-        <button onClick={handleLogout} className="text-sm transition-opacity hover:opacity-80"
-          style={{ color: CREAM_40 }}>
-          Abmelden
-        </button>
+        <div className="flex items-center gap-4">
+          {isAdminUser && (
+            <button onClick={() => setShowUserManager(true)} title="Team verwalten"
+              className="transition-opacity hover:opacity-80" style={{ color: CREAM_40 }}>
+              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          )}
+          <button onClick={handleLogout} className="text-sm transition-opacity hover:opacity-80"
+            style={{ color: CREAM_40 }}>
+            Abmelden
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 pb-24">
@@ -855,6 +875,8 @@ export default function Home() {
           onLoad={a => { loadAnalysis(a); setShowArchive(false) }}
         />
       )}
+
+      {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
 
       {/* Duplikat-Dialog */}
       {dupStep && dupAnalysis && (
