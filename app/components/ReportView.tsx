@@ -220,15 +220,19 @@ export function MarkdownRenderer({ content, scores }: { content: string; scores:
   return <div className="space-y-1">{elements}</div>
 }
 
-export function ExportButton({ report, scores, inputUrl }: { report: string; scores: Scores; inputUrl: string }) {
+export function ExportButton({ report, scores, inputUrl, analysisId }: { report: string; scores: Scores; inputUrl: string; analysisId?: string }) {
   const [exporting, setExporting] = useState(false)
   async function handleExport() {
     setExporting(true)
     try {
-      const res = await fetch('/api/export-pptx', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, scores, url: inputUrl }),
-      })
+      // Öffentliche Seite: über ID exportieren (kein Cookie nötig)
+      // Interne Seite: über POST mit Report-Daten
+      const res = analysisId
+        ? await fetch(`/api/export-pptx-public?id=${analysisId}`)
+        : await fetch('/api/export-pptx', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ report, scores, url: inputUrl }),
+          })
       if (!res.ok) throw new Error('Export fehlgeschlagen')
       const blob = await res.blob()
       const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+?)"/)?.[1] ?? 'P2-Digitalcheck.pptx'

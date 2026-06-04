@@ -52,7 +52,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
         <div className="max-w-4xl mx-auto flex items-center justify-between flex-wrap gap-4 pt-6 mb-4"
           style={{ borderTop: '1px solid rgba(235,234,204,0.1)' }}>
           <p className="text-sm">P2/ Kommunikation AG · digitalcheck.p-zwei.ch</p>
-          <ExportButton report={report} scores={scores} inputUrl={analysis.url} />
+          <ExportButton report={report} scores={scores} inputUrl={analysis.url} analysisId={id} />
         </div>
       </footer>
     </div>

@@ -7,6 +7,7 @@ export function proxy(req: NextRequest) {
   if (
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/intake') ||
+    pathname.startsWith('/api/export-pptx-public') ||
     pathname.startsWith('/a/') ||
     pathname === '/login' ||
     pathname.startsWith('/_next') ||
