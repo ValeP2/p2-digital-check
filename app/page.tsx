@@ -502,7 +502,14 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
       const data = await res.json()
       setResult(data)
-    } catch (e) { setError(`Recheck fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('abgerufen') || msg.includes('fetch') || msg.includes('ECONNREFUSED') || msg.includes('timeout')) {
+        setError('Diese Website blockiert automatische Zugriffe (Crawler-Schutz). Bitte direkt eine neue Analyse starten.')
+      } else {
+        setError(`Recheck fehlgeschlagen: ${msg}`)
+      }
+    }
     finally { setChecking(false) }
   }
 
