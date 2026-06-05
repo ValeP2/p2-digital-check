@@ -26,17 +26,40 @@ interface SavedAnalysis {
 
 const STORAGE_KEY = 'p2-analyses'
 
-function loadHistory(): SavedAnalysis[] {
-  if (typeof window === 'undefined') return []
+// History: Redis (server, per User) mit localStorage als Fallback
+function parseHistory(raw: unknown): SavedAnalysis[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
-    if (!Array.isArray(raw)) return []
-    // Nur valide Einträge behalten (schützt vor altem/kaputtem Format → kein Crash)
-    return raw.filter((a): a is SavedAnalysis =>
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(arr)) return []
+    return arr.filter((a): a is SavedAnalysis =>
       a && typeof a.url === 'string' && typeof a.id === 'string' &&
       a.scores && typeof a.scores.gesamt === 'number' && typeof a.report === 'string'
     )
   } catch { return [] }
+}
+
+function loadHistory(): SavedAnalysis[] {
+  if (typeof window === 'undefined') return []
+  return parseHistory(localStorage.getItem(STORAGE_KEY))
+}
+
+async function loadHistoryFromServer(): Promise<SavedAnalysis[]> {
+  try {
+    const res = await fetch('/api/history')
+    if (!res.ok) return loadHistory()
+    const { history } = await res.json()
+    return parseHistory(history)
+  } catch { return loadHistory() }
+}
+
+async function saveHistoryToServer(history: SavedAnalysis[]): Promise<void> {
+  try {
+    await fetch('/api/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history: JSON.stringify(history) }),
+    })
+  } catch { /* ignore */ }
 }
 
 function safeHostname(url: string): string {
@@ -49,14 +72,7 @@ function normalizeUrl(u: string): string {
   return s
 }
 
-function saveToHistory(analysis: SavedAnalysis, keepExisting = false) {
-  const all = loadHistory()
-  // keepExisting=false → vorhandenen Eintrag mit gleicher URL überschreiben (entfernen)
-  const base = keepExisting ? all : all.filter(a => normalizeUrl(a.url) !== normalizeUrl(analysis.url))
-  const updated = [analysis, ...base].slice(0, 50)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-}
-
+// Synchroner Fallback (für confirm-delete etc.)
 function deleteFromHistory(id: string) {
   const updated = loadHistory().filter(a => a.id !== id)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
@@ -676,12 +692,27 @@ export default function Home() {
   const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setHistory(loadHistory())
     // Eingeloggten User aus Cookie lesen
     const rawCookie = document.cookie.split(';').find(c => c.trim().startsWith('p2-user='))
     const userEmail = rawCookie ? decodeURIComponent(rawCookie.trim().slice('p2-user='.length)) : ''
     setCurrentUserEmail(userEmail)
     setIsAdminUser(['vale@p-zwei.ch','andreas@p-zwei.ch'].includes(userEmail))
+
+    // History von Server laden (Redis, per User)
+    loadHistoryFromServer().then(serverHistory => {
+      if (serverHistory.length > 0) {
+        setHistory(serverHistory)
+        // Lokal cachen
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(serverHistory))
+      } else {
+        // Fallback: localStorage – und bei vorhandenen Daten zu Server migrieren
+        const local = loadHistory()
+        if (local.length > 0) {
+          setHistory(local)
+          saveHistoryToServer(local) // Einmalige Migration
+        }
+      }
+    })
   }, [])
 
   async function refreshTotalCost() {
@@ -776,8 +807,13 @@ export default function Home() {
           report: fullText,
           cost: finalCost,
         }
-        saveToHistory(entry, keepExisting)
-        setHistory(loadHistory())
+        // In Redis speichern (per User, geräteübergreifend)
+        const current = await loadHistoryFromServer()
+        const base = keepExisting ? current : current.filter(a => normalizeUrl(a.url) !== normalizeUrl(entry.url))
+        const updated = [entry, ...base].slice(0, 50)
+        await saveHistoryToServer(updated)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+        setHistory(updated)
       }
     }
   }
@@ -817,7 +853,11 @@ export default function Home() {
           companyName: extractCompanyName(fullText),
           date: new Date().toISOString(), scores, report: fullText, cost,
         }
-        saveToHistory(entry); setHistory(loadHistory())
+        const cur = await loadHistoryFromServer()
+        const upd = [entry, ...cur.filter(a => normalizeUrl(a.url) !== normalizeUrl(entry.url))].slice(0, 50)
+        await saveHistoryToServer(upd)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(upd))
+        setHistory(upd)
       }
     } catch (e) {
       console.error(e)
@@ -915,7 +955,12 @@ export default function Home() {
                     <div className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm"
                       style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
                       <span style={{ color: '#fca5a5' }} className="flex-1 text-sm">Wirklich löschen?</span>
-                      <button onClick={() => { deleteFromHistory(a.id); setHistory(loadHistory()); setConfirmDeleteId(null) }}
+                      <button onClick={async () => {
+                        const updated = history.filter(h => h.id !== a.id)
+                        await saveHistoryToServer(updated)
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+                        setHistory(updated); setConfirmDeleteId(null)
+                      }}
                         className="text-xs font-semibold px-3 py-1 rounded-full"
                         style={{ background: '#ef4444', color: 'white' }}>Ja</button>
                       <button onClick={() => setConfirmDeleteId(null)}
