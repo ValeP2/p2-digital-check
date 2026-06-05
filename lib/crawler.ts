@@ -54,23 +54,33 @@ function cleanText(text: string): string {
 }
 
 async function fetchPage(url: string): Promise<{ html: string; statusCode: number; headers: Record<string, string> } | null> {
-  try {
-    const response = await axios.get(url, {
-      timeout: 12000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; P2DigitalCheck/1.0)',
-        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-        'Accept-Language': 'de-CH,de;q=0.9,en;q=0.8',
-      },
-      maxRedirects: 5,
-    })
-    return { html: response.data as string, statusCode: response.status, headers: response.headers as Record<string, string> }
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error) && error.response) {
-      return { html: error.response.data as string, statusCode: error.response.status, headers: (error.response.headers ?? {}) as Record<string, string> }
+  const UA_LIST = [
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'Mozilla/5.0 (compatible; P2DigitalCheck/1.0)',
+  ]
+  for (const ua of UA_LIST) {
+    try {
+      const response = await axios.get(url, {
+        timeout: 15000,
+        headers: {
+          'User-Agent': ua,
+          'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+          'Accept-Language': 'de-CH,de;q=0.9,en;q=0.8',
+        },
+        maxRedirects: 5,
+        // SSL-Fehler ignorieren (selbstsignierte Zertifikate etc.)
+        httpsAgent: new (await import('https')).Agent({ rejectUnauthorized: false }),
+      })
+      return { html: response.data as string, statusCode: response.status, headers: response.headers as Record<string, string> }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response) {
+        return { html: error.response.data as string, statusCode: error.response.status, headers: (error.response.headers ?? {}) as Record<string, string> }
+      }
+      // Nächsten User-Agent versuchen
     }
-    return null
   }
+  return null
 }
 
 function extractPageData(html: string, url: string, statusCode: number): PageData {
