@@ -498,10 +498,11 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       })
-      if (!res.ok) throw new Error('Recheck fehlgeschlagen')
+      if (res.status === 401) throw new Error('Nicht autorisiert – bitte neu einloggen.')
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
       const data = await res.json()
       setResult(data)
-    } catch { setError('Recheck fehlgeschlagen – bitte erneut versuchen.') }
+    } catch (e) { setError(`Recheck fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`) }
     finally { setChecking(false) }
   }
 

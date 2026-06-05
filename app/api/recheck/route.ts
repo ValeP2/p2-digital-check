@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { crawlWebsite } from '@/lib/crawler'
 import { buildPrompt } from '@/lib/prompt'
+import { verifyUser } from '@/lib/userStore'
 
 export const maxDuration = 120
 
@@ -9,8 +10,12 @@ const MODEL = 'claude-haiku-4-5-20251001'
 const SCORE_KEYS = ['positionierung','angebot','zielgruppe','vertrauen','conversion','seo','navigation','sprache','technik','externe_sichtbarkeit','gesamt'] as const
 
 export async function POST(req: NextRequest) {
+  // Auth: Admin-Passwort oder eingeladener User
   const session = req.cookies.get('p2-session')?.value
-  if (session !== process.env.APP_PASSWORD) return new Response('Unauthorized', { status: 401 })
+  const userEmail = req.cookies.get('p2-user')?.value || ''
+  const isValidSession = session === process.env.APP_PASSWORD ||
+    (userEmail && await verifyUser(userEmail, session || '').then(u => !!u).catch(() => false))
+  if (!isValidSession) return new Response('Unauthorized', { status: 401 })
 
   const { url } = await req.json() as { url: string }
   if (!url) return NextResponse.json({ error: 'keine url' }, { status: 400 })
