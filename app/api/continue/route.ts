@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { verifyUser } from '@/lib/userStore'
 
 export const maxDuration = 300
 
@@ -7,9 +8,10 @@ const MODEL = 'claude-haiku-4-5-20251001'
 
 export async function POST(req: NextRequest) {
   const session = req.cookies.get('p2-session')?.value
-  if (session !== process.env.APP_PASSWORD) {
-    return new Response('Unauthorized', { status: 401 })
-  }
+  const userEmail = req.cookies.get('p2-user')?.value || ''
+  const isValid = session === process.env.APP_PASSWORD ||
+    (userEmail && await verifyUser(userEmail, session || '').then(u => !!u).catch(() => false))
+  if (!isValid) return new Response('Unauthorized', { status: 401 })
 
   const { report, url } = await req.json() as { report: string; url: string }
   if (!report) return new Response('Kein Bericht', { status: 400 })
