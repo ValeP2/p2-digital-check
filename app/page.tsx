@@ -524,9 +524,9 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
 
   if (result) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#293263', border: '1px solid rgba(235,234,204,0.15)' }}>
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ background: '#293263', border: '1px solid rgba(235,234,204,0.15)' }}>
         {/* Header */}
-        <div className="px-6 py-5" style={{ borderBottom: '1px solid rgba(235,234,204,0.1)' }}>
+        <div className="px-8 py-6" style={{ borderBottom: '1px solid rgba(235,234,204,0.1)' }}>
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-lg font-bold" style={{ color: CREAM }}>Recheck-Ergebnis</h2>
             <div className="text-2xl font-bold" style={{ color: diffGesamt() > 0 ? '#22c55e' : diffGesamt() < 0 ? '#ef4444' : CREAM }}>
@@ -541,7 +541,7 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
           </p>
         </div>
         {/* Vergleich */}
-        <div className="px-6 py-4 space-y-2.5 max-h-72 overflow-y-auto">
+        <div className="px-8 py-6 space-y-3">
           {SCORE_LABELS.map(({ key, label }) => {
             const d = diff(key)
             const newScore = result.scores[key]
@@ -562,7 +562,7 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
           })}
         </div>
         {/* Buttons */}
-        <div className="px-6 py-4 flex gap-3" style={{ borderTop: '1px solid rgba(235,234,204,0.1)' }}>
+        <div className="px-8 py-6 flex gap-3" style={{ borderTop: '1px solid rgba(235,234,204,0.1)' }}>
           <button onClick={() => { setResult(null) }}
             className="flex-1 rounded-full py-3 text-sm transition-opacity hover:opacity-80"
             style={{ background: CREAM_15, color: CREAM, border: '1px solid rgba(235,234,204,0.2)' }}>
