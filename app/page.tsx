@@ -665,6 +665,7 @@ export default function Home() {
   const [history, setHistory] = useState<SavedAnalysis[]>([])
   const [showArchive, setShowArchive] = useState(false)
   const [showUserManager, setShowUserManager] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState('')
   const [isAdminUser, setIsAdminUser] = useState(false)
   const [truncated, setTruncated] = useState(false)
@@ -908,33 +909,48 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-1.5">
               {history.slice(0, 10).map(a => (
-                <div key={a.id} className="flex items-center gap-2 group">
-                  <button onClick={() => loadAnalysis(a)}
-                    className="flex items-center gap-3 text-sm rounded-xl px-4 py-2.5 transition-all flex-1 text-left"
-                    style={{ background: 'rgba(235,234,204,0.06)', border: '1px solid rgba(235,234,204,0.1)', color: '#EBEACC' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.12)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.06)')}>
-                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{ background: barColor(a.scores.gesamt), color: '#293263' }}>
-                      {a.scores.gesamt}
-                    </span>
-                    <span className="flex-1 truncate font-medium">{a.companyName || safeHostname(a.url)}</span>
-                    <span className="text-xs truncate hidden sm:block" style={{ color: 'rgba(235,234,204,0.4)' }}>
-                      {safeHostname(a.url)}
-                    </span>
-                    <span className="text-xs shrink-0" style={{ color: 'rgba(235,234,204,0.4)' }}>
-                      {new Date(a.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => { deleteFromHistory(a.id); setHistory(loadHistory()) }}
-                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0 p-1.5 rounded-lg"
-                    style={{ color: 'rgba(235,234,204,0.5)' }}
-                    title="Löschen">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                <div key={a.id} className="group relative">
+                  {confirmDeleteId === a.id ? (
+                    /* Confirm-Prompt */
+                    <div className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm"
+                      style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                      <span style={{ color: '#fca5a5' }} className="flex-1 text-sm">Wirklich löschen?</span>
+                      <button onClick={() => { deleteFromHistory(a.id); setHistory(loadHistory()); setConfirmDeleteId(null) }}
+                        className="text-xs font-semibold px-3 py-1 rounded-full"
+                        style={{ background: '#ef4444', color: 'white' }}>Ja</button>
+                      <button onClick={() => setConfirmDeleteId(null)}
+                        className="text-xs" style={{ color: 'rgba(235,234,204,0.5)' }}>Abbrechen</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => loadAnalysis(a)}
+                      className="flex items-center gap-3 text-sm rounded-xl px-4 py-2.5 transition-all w-full text-left"
+                      style={{ background: 'rgba(235,234,204,0.06)', border: '1px solid rgba(235,234,204,0.1)', color: '#EBEACC' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.12)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.06)')}>
+                      {/* Score-Kreis – vertikal zentriert */}
+                      <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 leading-none"
+                        style={{ background: barColor(a.scores.gesamt), color: '#293263' }}>
+                        {a.scores.gesamt}
+                      </span>
+                      <span className="flex-1 truncate font-medium">{a.companyName || safeHostname(a.url)}</span>
+                      <span className="text-xs truncate hidden sm:block" style={{ color: 'rgba(235,234,204,0.4)' }}>
+                        {safeHostname(a.url)}
+                      </span>
+                      <span className="text-xs shrink-0" style={{ color: 'rgba(235,234,204,0.4)' }}>
+                        {new Date(a.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                      </span>
+                      {/* Löschen-Icon – im Balken, erscheint bei Hover */}
+                      <span
+                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(a.id) }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+                        style={{ background: 'rgba(41,50,99,0.8)', color: 'rgba(235,234,204,0.6)' }}
+                        title="Löschen">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

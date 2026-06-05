@@ -4,7 +4,7 @@ import { crawlWebsite } from '@/lib/crawler'
 import { buildPrompt } from '@/lib/prompt'
 import { verifyUser } from '@/lib/userStore'
 
-export const maxDuration = 120
+export const maxDuration = 250
 
 const MODEL = 'claude-haiku-4-5-20251001'
 const SCORE_KEYS = ['positionierung','angebot','zielgruppe','vertrauen','conversion','seo','navigation','sprache','technik','externe_sichtbarkeit','gesamt'] as const
