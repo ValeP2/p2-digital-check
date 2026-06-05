@@ -83,8 +83,52 @@ async function fetchPage(url: string): Promise<{ html: string; statusCode: numbe
   return null
 }
 
+// Extrahiert Text aus JS-Framework-Daten (Next.js, Nuxt, etc.)
+function extractJsFrameworkContent(html: string): string {
+  const extras: string[] = []
+
+  // Next.js: __NEXT_DATA__ enthält den gerenderten Seiteninhalt als JSON
+  const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i)
+  if (nextDataMatch) {
+    try {
+      const json = JSON.parse(nextDataMatch[1])
+      const str = JSON.stringify(json)
+      // Text aus JSON-Strings extrahieren (nur Strings > 20 Zeichen, keine URLs/Keys)
+      const textParts = str.match(/"([^"]{20,})"/g)?.map(s => s.slice(1, -1))
+        .filter(s => !s.startsWith('http') && !s.startsWith('/') && !/^[a-z_]+$/.test(s)) ?? []
+      extras.push(...textParts.slice(0, 100))
+    } catch { /* ignore */ }
+  }
+
+  // JSON-LD (Schema.org) – enthält strukturierte Inhalte
+  const jsonldMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)
+  for (const m of jsonldMatches) {
+    try {
+      const data = JSON.parse(m[1])
+      const str = JSON.stringify(data)
+      const texts = str.match(/"([^"]{15,})"/g)?.map(s => s.slice(1, -1))
+        .filter(s => !s.startsWith('http') && !s.startsWith('@') && !/^[a-z_]+$/.test(s)) ?? []
+      extras.push(...texts.slice(0, 30))
+    } catch { /* ignore */ }
+  }
+
+  // Nuxt / Vue: __NUXT__ oder window.__INITIAL_STATE__
+  const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\});/i)
+  if (nuxtMatch) {
+    const texts = nuxtMatch[1].match(/"([^"]{15,})"/g)?.map(s => s.slice(1, -1))
+      .filter(s => !s.startsWith('http') && !/^[a-z_]+$/.test(s)) ?? []
+    extras.push(...texts.slice(0, 50))
+  }
+
+  return extras.join(' ').replace(/\\n|\\t|\\r/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 function extractPageData(html: string, url: string, statusCode: number): PageData {
   const $ = cheerio.load(html)
+
+  // JS-Framework-Inhalte VOR dem Entfernen der Scripts extrahieren
+  const jsContent = extractJsFrameworkContent(html)
+
   $('script, style, noscript').remove()
 
   const title = cleanText($('title').text())
@@ -92,8 +136,14 @@ function extractPageData(html: string, url: string, statusCode: number): PageDat
   const h1 = $('h1').map((_, el) => cleanText($(el).text())).get().filter(Boolean)
   const h2 = $('h2').map((_, el) => cleanText($(el).text())).get().filter(Boolean)
   const h3 = $('h3').map((_, el) => cleanText($(el).text())).get().filter(Boolean)
-  const bodyText = cleanText($('body').text()).slice(0, 6000)
-  const wordCount = bodyText.split(/\s+/).filter(Boolean).length
+
+  // Statischer Text + JS-Framework-Inhalte kombinieren
+  const staticText = cleanText($('body').text())
+  const combinedText = staticText.length < 200 && jsContent
+    ? `${staticText} [JS-Inhalte:] ${jsContent}`.slice(0, 6000)
+    : staticText.slice(0, 6000)
+  const bodyText = combinedText
+  const wordCount = staticText.split(/\s+/).filter(Boolean).length
 
   const base = new URL(url)
   const internalLinks: string[] = []

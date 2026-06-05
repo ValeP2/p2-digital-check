@@ -38,6 +38,7 @@ Analysiere diese Website für einen Digital Check der P2 Digitale Kommunikation 
 Der Bericht dient als Grundlage für ein Verkaufsgespräch und muss FUNDIERT, KONKRET und SPEZIFISCH sein.
 
 WICHTIGE REGELN FÜR DEINEN BERICHT:
+- Wenn Seiten als "leer" erscheinen (0 Wörter), kann das an JavaScript-Rendering liegen. Prüfe ob "[JS-Inhalte:]" im Text steht – das sind Inhalte die nur per JS geladen werden. Erwähne dies explizit wenn relevant.
 - Zitiere echten Text von der Website in Anführungszeichen (besonders Tippfehler, schwache Formulierungen)
 - Nenne konkrete Zahlen aus den Crawl-Daten (Wortanzahl, fehlende Meta-Daten, Anzahl Bilder ohne Alt-Text etc.)
 - Nutze Bullet-Listen für Beispiele (Gerätetypen, fehlende Inhalte, konkrete Verbesserungsvorschläge)
