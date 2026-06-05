@@ -485,6 +485,106 @@ function MarkdownRenderer({ content, scores }: { content: string; scores: Scores
   return <div className="space-y-1">{elements}</div>
 }
 
+// ─── Recheck ───────────────────────────────────────────────────────────────────
+function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScores: Scores; onNewAnalysis: () => void }) {
+  const [checking, setChecking] = useState(false)
+  const [result, setResult] = useState<{ scores: Scores; date: string } | null>(null)
+  const [error, setError] = useState('')
+
+  async function handleRecheck() {
+    setChecking(true); setError('')
+    try {
+      const res = await fetch('/api/recheck', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      if (!res.ok) throw new Error('Recheck fehlgeschlagen')
+      const data = await res.json()
+      setResult(data)
+    } catch { setError('Recheck fehlgeschlagen – bitte erneut versuchen.') }
+    finally { setChecking(false) }
+  }
+
+  function diff(key: keyof Omit<Scores,'gesamt'>) {
+    if (!result) return 0
+    return result.scores[key] - oldScores[key]
+  }
+  function diffGesamt() { return result ? result.scores.gesamt - oldScores.gesamt : 0 }
+
+  const arrowColor = (d: number) => d > 0 ? '#22c55e' : d < 0 ? '#ef4444' : CREAM_40
+  const arrow = (d: number) => d > 0 ? '↑' : d < 0 ? '↓' : '→'
+
+  if (result) return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#293263', border: '1px solid rgba(235,234,204,0.15)' }}>
+        {/* Header */}
+        <div className="px-6 py-5" style={{ borderBottom: '1px solid rgba(235,234,204,0.1)' }}>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-bold" style={{ color: CREAM }}>Recheck-Ergebnis</h2>
+            <div className="text-2xl font-bold" style={{ color: diffGesamt() > 0 ? '#22c55e' : diffGesamt() < 0 ? '#ef4444' : CREAM }}>
+              {result.scores.gesamt}/10
+              <span className="text-base ml-2" style={{ color: arrowColor(diffGesamt()) }}>
+                {arrow(diffGesamt())}{Math.abs(diffGesamt()) > 0 ? Math.abs(diffGesamt()) : ''}
+              </span>
+            </div>
+          </div>
+          <p className="text-sm" style={{ color: CREAM_40 }}>
+            Vorher: {oldScores.gesamt}/10 · Jetzt: {result.scores.gesamt}/10 · {new Date(result.date).toLocaleDateString('de-CH')}
+          </p>
+        </div>
+        {/* Vergleich */}
+        <div className="px-6 py-4 space-y-2.5 max-h-72 overflow-y-auto">
+          {SCORE_LABELS.map(({ key, label }) => {
+            const d = diff(key)
+            const newScore = result.scores[key]
+            const oldScore = oldScores[key]
+            return (
+              <div key={key} className="flex items-center gap-3">
+                <span className="text-sm shrink-0 w-52 text-right" style={{ color: CREAM_90 }}>{label}</span>
+                <div className="flex-1 h-1.5 rounded-full" style={{ background: CREAM_15 }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${newScore * 10}%`, backgroundColor: barColor(newScore) }} />
+                </div>
+                <span className="text-sm font-semibold w-5 text-right shrink-0" style={{ color: CREAM }}>{newScore}</span>
+                <span className="text-xs w-8 shrink-0 font-semibold" style={{ color: arrowColor(d) }}>
+                  {d !== 0 ? `${arrow(d)}${Math.abs(d)}` : '–'}
+                </span>
+                <span className="text-xs shrink-0" style={{ color: CREAM_40 }}>({oldScore})</span>
+              </div>
+            )
+          })}
+        </div>
+        {/* Buttons */}
+        <div className="px-6 py-4 flex gap-3" style={{ borderTop: '1px solid rgba(235,234,204,0.1)' }}>
+          <button onClick={() => { setResult(null) }}
+            className="flex-1 rounded-full py-3 text-sm transition-opacity hover:opacity-80"
+            style={{ background: CREAM_15, color: CREAM, border: '1px solid rgba(235,234,204,0.2)' }}>
+            Schliessen
+          </button>
+          <button onClick={() => { setResult(null); onNewAnalysis() }}
+            className="flex-1 rounded-full py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+            style={{ background: CREAM, color: '#293263' }}>
+            Neue vollständige Analyse
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <button onClick={handleRecheck} disabled={checking}
+        className="flex items-center gap-2 text-sm rounded-full px-5 py-2.5 transition-opacity hover:opacity-80 disabled:opacity-50"
+        style={{ background: CREAM_15, color: CREAM, border: '1px solid rgba(235,234,204,0.2)' }}>
+        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        {checking ? 'Wird gecheckt…' : 'Recheck'}
+      </button>
+      {error && <p className="text-xs" style={{ color: '#fca5a5' }}>{error}</p>}
+    </div>
+  )
+}
+
 // ─── Export Button ─────────────────────────────────────────────────────────────
 function ExportButton({ report, scores, inputUrl }: { report: string; scores: Scores; inputUrl: string }) {
   const [exporting, setExporting] = useState(false)
@@ -820,6 +920,13 @@ export default function Home() {
 
         {/* Score Dashboard */}
         {scores && <ScoreDashboard scores={scores} />}
+
+        {/* Recheck unter dem Dashboard */}
+        {scores && phase === 'done' && url && (
+          <div className="flex justify-center mb-8 no-print">
+            <RecheckButton url={url} oldScores={scores} onNewAnalysis={() => { setReport(''); setScores(null); setPhase('idle') }} />
+          </div>
+        )}
 
         {/* Report */}
         {report && (
