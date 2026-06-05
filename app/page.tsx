@@ -505,7 +505,7 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('abgerufen') || msg.includes('fetch') || msg.includes('ECONNREFUSED') || msg.includes('timeout')) {
-        setError('Diese Website blockiert automatische Zugriffe (Crawler-Schutz). Bitte direkt eine neue Analyse starten.')
+        setError('blocked')
       } else {
         setError(`Recheck fehlgeschlagen: ${msg}`)
       }
@@ -579,7 +579,7 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
   )
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-3">
       <button onClick={handleRecheck} disabled={checking}
         className="flex items-center gap-2 text-sm rounded-full px-5 py-2.5 transition-opacity hover:opacity-80 disabled:opacity-50"
         style={{ background: CREAM_15, color: CREAM, border: '1px solid rgba(235,234,204,0.2)' }}>
@@ -588,7 +588,20 @@ function RecheckButton({ url, oldScores, onNewAnalysis }: { url: string; oldScor
         </svg>
         {checking ? 'Wird gecheckt…' : 'Recheck'}
       </button>
-      {error && <p className="text-xs" style={{ color: '#fca5a5' }}>{error}</p>}
+      {error === 'blocked' && (
+        <p className="text-xs text-center max-w-xs leading-relaxed" style={{ color: 'rgba(235,234,204,0.6)' }}>
+          Die Website schützt sich vor automatischen Zugriffen – ein Recheck ist leider nicht möglich.{' '}
+          <button onClick={onNewAnalysis}
+            className="underline underline-offset-2 transition-opacity hover:opacity-80"
+            style={{ color: CREAM }}>
+            Neue Analyse starten
+          </button>
+          {' '}um einen aktuellen Stand zu erhalten.
+        </p>
+      )}
+      {error && error !== 'blocked' && (
+        <p className="text-xs" style={{ color: '#fca5a5' }}>{error}</p>
+      )}
     </div>
   )
 }
