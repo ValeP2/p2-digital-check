@@ -98,15 +98,20 @@ export async function POST(req: NextRequest) {
 
         const fullPrompt = prompt + (externalResearch ? `\n\n---\nEXTERNE RECHERCHE:\n${externalResearch}\n---\n` : '')
 
-        // Schritt 2: Scores mit Haiku (günstig, nur JSON)
+        // Schritt 2: Scores – temperature:0 für Konsistenz
         send('status', 'Bewerte Kategorien...')
+        const SCORE_SYS = `Du bewertest Websites nach fixen, messbaren Kriterien. Antworte NUR mit JSON.
+SCORING (strikt – gleiche Seite = gleiche Punkte):
+1-2: Kritisch fehlend | 3-4: Stark verbesserungsbedürftig | 5-6: Durchschnittlich | 7-8: Gut | 9-10: Excellent
+TECHNIK-BONUS: +1 wenn JSON-LD vorhanden, +1 wenn alle Bilder Alt-Text haben.`
         const scoreResponse = await client.messages.create({
           model: MODELS.fast.id,
-          max_tokens: 300,
-          system: 'Antworte NUR mit validem JSON, kein anderer Text.',
+          max_tokens: 400,
+          temperature: 0,
+          system: SCORE_SYS,
           messages: [{
             role: 'user',
-            content: `Bewerte diese Website (1–10):\n\n${fullPrompt.slice(0, 4000)}\n\nNur JSON:\n{"positionierung":0,"angebot":0,"zielgruppe":0,"vertrauen":0,"conversion":0,"seo":0,"navigation":0,"sprache":0,"technik":0,"externe_sichtbarkeit":0,"gesamt":0}`
+            content: `Bewerte diese Website objektiv:\n\n${fullPrompt.slice(0, 5000)}\n\nNur JSON:\n{"positionierung":0,"angebot":0,"zielgruppe":0,"vertrauen":0,"conversion":0,"seo":0,"navigation":0,"sprache":0,"technik":0,"externe_sichtbarkeit":0,"gesamt":0}`
           }],
         })
         addUsage('fast', scoreResponse.usage.input_tokens, scoreResponse.usage.output_tokens)

@@ -949,79 +949,81 @@ export default function Home() {
               </button>
             </div>
             <div className="flex flex-col gap-1.5">
-              {history.slice(0, 10).map(a => (
-                <div key={a.id} className="group relative">
-                  {confirmDeleteId === a.id ? (
-                    /* Confirm-Prompt */
-                    <div className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm"
-                      style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
-                      <span style={{ color: '#fca5a5' }} className="flex-1 text-sm">Wirklich löschen?</span>
-                      <button onClick={async () => {
-                        const updated = history.filter(h => h.id !== a.id)
-                        await saveHistoryToServer(updated)
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-                        setHistory(updated); setConfirmDeleteId(null)
-                      }}
-                        className="text-xs font-semibold px-3 py-1 rounded-full"
-                        style={{ background: '#ef4444', color: 'white' }}>Ja</button>
-                      <button onClick={() => setConfirmDeleteId(null)}
-                        className="text-xs" style={{ color: 'rgba(235,234,204,0.5)' }}>Abbrechen</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => loadAnalysis(a)}
-                      className="flex items-center gap-3 text-sm rounded-xl px-4 py-2.5 transition-all w-full text-left"
-                      style={{ background: 'rgba(235,234,204,0.06)', border: '1px solid rgba(235,234,204,0.1)', color: '#EBEACC' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.12)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(235,234,204,0.06)')}>
-                      {/* Score-Kreis – vertikal zentriert */}
-                      <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 leading-none"
-                        style={{ background: barColor(a.scores.gesamt), color: '#293263' }}>
-                        {a.scores.gesamt}
-                      </span>
-                      <span className="flex-1 truncate font-medium">{a.companyName || safeHostname(a.url)}</span>
-                      <span className="text-xs truncate hidden sm:block" style={{ color: 'rgba(235,234,204,0.4)' }}>
-                        {safeHostname(a.url)}
-                      </span>
+              {history.slice(0, 10).map((a, rowIdx) => (
+                <div key={a.id} className="group relative fade-in-row"
+                  style={{ animationDelay: `${rowIdx * 60}ms` }}>
+                  <button onClick={() => { if (confirmDeleteId === a.id) return; loadAnalysis(a) }}
+                    className="flex items-center gap-3 text-sm rounded-xl px-4 py-2.5 transition-all w-full text-left"
+                    style={{
+                      background: confirmDeleteId === a.id ? 'rgba(239,68,68,0.12)' : 'rgba(235,234,204,0.06)',
+                      border: confirmDeleteId === a.id ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(235,234,204,0.1)',
+                      color: '#EBEACC'
+                    }}
+                    onMouseEnter={e => { if (confirmDeleteId !== a.id) e.currentTarget.style.background = 'rgba(235,234,204,0.12)' }}
+                    onMouseLeave={e => { if (confirmDeleteId !== a.id) e.currentTarget.style.background = 'rgba(235,234,204,0.06)' }}>
+
+                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 leading-none"
+                      style={{ background: barColor(a.scores.gesamt), color: '#293263' }}>
+                      {a.scores.gesamt}
+                    </span>
+                    <span className="flex-1 truncate font-medium"
+                      style={{ color: confirmDeleteId === a.id ? '#fca5a5' : '#EBEACC' }}>
+                      {confirmDeleteId === a.id ? 'Wirklich löschen?' : (a.companyName || safeHostname(a.url))}
+                    </span>
+                    {confirmDeleteId !== a.id && <>
+                      <span className="text-xs truncate hidden sm:block" style={{ color: 'rgba(235,234,204,0.4)' }}>{safeHostname(a.url)}</span>
                       <span className="text-xs shrink-0" style={{ color: 'rgba(235,234,204,0.4)' }}>
                         {new Date(a.date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                       </span>
-                      {/* Clipboard / Copy-Link-Icon */}
-                      <span
-                        onClick={async e => {
+                    </>}
+
+                    {/* Icons – eng beieinander */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Clipboard */}
+                      {confirmDeleteId !== a.id && (
+                        <span onClick={async e => {
                           e.stopPropagation()
                           const res = await fetch('/api/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a) })
-                          if (res.ok) {
-                            const { link } = await res.json()
-                            await navigator.clipboard.writeText(link)
-                            setCopiedId(a.id)
-                            setTimeout(() => setCopiedId(null), 2000)
-                          }
+                          if (res.ok) { const { link } = await res.json(); await navigator.clipboard.writeText(link); setCopiedId(a.id); setTimeout(() => setCopiedId(null), 2000) }
                         }}
-                        className="opacity-30 group-hover:opacity-70 hover:!opacity-100 transition-all shrink-0 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
-                        style={{ background: copiedId === a.id ? 'rgba(34,197,94,0.3)' : 'rgba(41,50,99,0.8)', color: copiedId === a.id ? '#22c55e' : 'rgba(235,234,204,0.8)' }}
-                        title="Link kopieren">
-                        {copiedId === a.id ? (
-                          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
-                          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                        )}
+                          className="opacity-30 group-hover:opacity-70 hover:!opacity-100 transition-all w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
+                          style={{ background: copiedId === a.id ? 'rgba(34,197,94,0.3)' : 'rgba(41,50,99,0.8)', color: copiedId === a.id ? '#22c55e' : 'rgba(235,234,204,0.8)' }}
+                          title="Link kopieren">
+                          {copiedId === a.id
+                            ? <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            : <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                          }
+                        </span>
+                      )}
+
+                      {/* Trash / Confirm */}
+                      <span onClick={async e => {
+                        e.stopPropagation()
+                        if (confirmDeleteId === a.id) {
+                          // Bestätigt – löschen
+                          const updated = history.filter(h => h.id !== a.id)
+                          await saveHistoryToServer(updated)
+                          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+                          setHistory(updated); setConfirmDeleteId(null)
+                        } else {
+                          setConfirmDeleteId(a.id)
+                          // Auto-reset nach 3s ohne Bestätigung
+                          setTimeout(() => setConfirmDeleteId(id => id === a.id ? null : id), 3000)
+                        }
+                      }}
+                        className="opacity-30 group-hover:opacity-70 hover:!opacity-100 transition-all w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
+                        style={{
+                          background: confirmDeleteId === a.id ? 'rgba(239,68,68,0.4)' : 'rgba(41,50,99,0.8)',
+                          color: confirmDeleteId === a.id ? '#ef4444' : 'rgba(235,234,204,0.6)',
+                        }}
+                        title={confirmDeleteId === a.id ? 'Löschen bestätigen' : 'Löschen'}>
+                        {confirmDeleteId === a.id
+                          ? <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          : <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        }
                       </span>
-                      {/* Löschen-Icon – immer sichtbar (30%), volle Opacity bei Hover */}
-                      <span
-                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(a.id) }}
-                        className="opacity-30 group-hover:opacity-70 hover:!opacity-100 transition-opacity shrink-0 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
-                        style={{ background: 'rgba(41,50,99,0.8)', color: 'rgba(235,234,204,0.6)' }}
-                        title="Löschen">
-                        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </span>
-                    </button>
-                  )}
+                    </div>
+                  </button>
                 </div>
               ))}
             </div>

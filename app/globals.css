@@ -23,6 +23,14 @@
 .fade-in-up {
   animation: fadeInUp 0.4s ease forwards;
 }
+@keyframes fadeInRow {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-row {
+  opacity: 0;
+  animation: fadeInRow 0.3s ease forwards;
+}
 @keyframes countUp {
   from { opacity: 0; }
   to   { opacity: 1; }
