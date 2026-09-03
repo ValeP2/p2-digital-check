@@ -18,7 +18,10 @@ export function proxy(req: NextRequest) {
   }
 
   const session = req.cookies.get('p2-session')?.value
-  if (session !== process.env.APP_PASSWORD) {
+  const authFlag = req.cookies.get('p2-auth')?.value
+  // Admin-Login: Passwort direkt. Eingeladene User: p2-auth=1 (gesetzt nach verifyUser)
+  const isAuthed = session === process.env.APP_PASSWORD || authFlag === '1'
+  if (!isAuthed) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
