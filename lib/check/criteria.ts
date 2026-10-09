@@ -201,10 +201,12 @@ export const DIMENSIONS: DimensionDef[] = [
       { id: 'S4', label: 'Genau eine Hauptüberschrift', gewicht: 1, quelle: 'messung',
         pruefen: 'Die Startseite hat genau eine H1.',
         measure: ({ crawl }) => {
-          const n = crawl.technical.h1Count
-          if (n === 1) return ok(`Eine H1: "${(crawl.pages[0]?.h1[0] ?? '').slice(0, 80)}"`)
-          if (n === 0) return no('Keine H1 auf der Startseite')
-          return part(`${n} H1-Überschriften auf der Startseite`)
+          // Verschiedene Texte zählen, nicht Tags: Baukästen liefern dieselbe
+          // H1 für jede Bildschirmgrösse einmal mit (Kompass-Befund 09.10.2026).
+          const h1 = crawl.pages[0]?.h1 ?? []
+          if (h1.length === 1) return ok(`Eine H1: "${h1[0].slice(0, 80)}"`)
+          if (h1.length === 0) return no('Keine H1 auf der Startseite')
+          return part(`${h1.length} verschiedene H1-Überschriften auf der Startseite: ${h1.slice(0, 3).map(t => `"${t.slice(0, 40)}"`).join(', ')}`)
         } },
       { id: 'S5', label: 'Individuelle Seitentitel', gewicht: 1, quelle: 'messung',
         pruefen: 'Die Unterseiten haben eigene, unterschiedliche Seitentitel.',

@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import { getAnalysis } from '@/lib/analysisStore'
 import { generatePptx } from '@/lib/generatePptx'
+import { getCheck } from '@/lib/checkStore'
+import { generateCheckPptx } from '@/lib/pptx/checkPptx'
 
 export const maxDuration = 30
 
@@ -8,6 +10,24 @@ export async function GET(req: NextRequest) {
   const id = new URL(req.url).searchParams.get('id')
   if (!id) return new Response('Keine ID', { status: 400 })
 
+  // Version 2: aus dem strukturierten Check
+  const check = await getCheck(id)
+  if (check) {
+    try {
+      const { buffer, filename } = await generateCheckPptx(check.result)
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+        },
+      })
+    } catch (err) {
+      console.error('PPT-Export fehlgeschlagen:', err)
+      return new Response('Export fehlgeschlagen', { status: 500 })
+    }
+  }
+
+  // Version 1 (alter Markdown-Bericht)
   const analysis = await getAnalysis(id)
   if (!analysis) return new Response('Analyse nicht gefunden', { status: 404 })
 

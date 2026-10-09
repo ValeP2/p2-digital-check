@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTotals } from '@/lib/costStore'
-import { getSessionUser } from '@/lib/session'
+import { getActiveUser } from '@/lib/session'
 
 export async function GET(req: NextRequest) {
-  if (!getSessionUser(req)) {
+  if (!await getActiveUser(req)) {
     return new Response('Unauthorized', { status: 401 })
   }
   const totals = await getTotals()

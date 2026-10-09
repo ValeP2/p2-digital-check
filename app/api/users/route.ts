@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllUsers, saveUser, deleteUser, generatePassword, ADMIN_EMAILS } from '@/lib/userStore'
-import { getSessionUser } from '@/lib/session'
+import { getAllUsers, saveUser, deleteUser, generatePassword, hashPassword, toPublic, ADMIN_EMAILS } from '@/lib/userStore'
+import { getActiveUser } from '@/lib/session'
 import { Resend } from 'resend'
 
 // GET: User-Liste (nur Admins)
 export async function GET(req: NextRequest) {
-  const session = getSessionUser(req)
+  const session = await getActiveUser(req)
   if (!session?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   const userEmail = session.email
-  const users = await getAllUsers()
+  // Nie Passwörter an den Browser (vorher gingen sie im Klartext mit)
+  const users = (await getAllUsers()).map(toPublic)
   return NextResponse.json({ users })
 }
 
 // POST: User einladen (nur Admins)
 export async function POST(req: NextRequest) {
-  const session = getSessionUser(req)
+  const session = await getActiveUser(req)
   if (!session?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   const userEmail = session.email
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   const password = generatePassword()
   await saveUser({
     email: targetEmail,
-    password,
+    passwordHash: await hashPassword(password),
     name: name || targetEmail.split('@')[0],
     createdAt: new Date().toISOString(),
     createdBy: userEmail,
@@ -48,14 +49,14 @@ export async function POST(req: NextRequest) {
       to: targetEmail,
       subject: 'Einladung zum P2 Digitalcheck',
       html: `
-        <div style="font-family:Arial,sans-serif;background:#293263;color:#EBEACC;padding:32px;border-radius:12px;max-width:480px">
-          <h2 style="color:#EBEACC;margin:0 0 8px">P2/ Digitalcheck</h2>
-          <p style="color:rgba(235,234,204,0.7);margin:0 0 24px">Du wurdest von ${userEmail} zum P2 Digitalcheck eingeladen.</p>
-          <table style="color:#EBEACC;font-size:14px;margin-bottom:24px">
-            <tr><td style="padding:4px 16px 4px 0;opacity:0.6">Login</td><td><strong>${targetEmail}</strong></td></tr>
-            <tr><td style="padding:4px 16px 4px 0;opacity:0.6">Passwort</td><td><strong style="letter-spacing:1px">${password}</strong></td></tr>
-          </table>
-          <a href="https://digitalcheck.p-zwei.ch/login" style="display:inline-block;background:#EBEACC;color:#293263;text-decoration:none;padding:12px 24px;border-radius:999px;font-weight:bold">Zum Login →</a>
+        <div style="font-family:Arial,sans-serif;max-width:460px;margin:0 auto;padding:32px;background:#ffffff;border-radius:20px;border:1px solid #eee;color:#1C1C1E;text-align:center">
+          <p style="color:#7B6FEF;font-weight:bold;margin:0 0 12px">P2 Digital Check</p>
+          <h2 style="margin:0 0 8px;font-size:20px">Einladung</h2>
+          <p style="color:#6B7280;margin:0 0 20px;line-height:1.5">${userEmail} hat dich zum P2 Digital Check eingeladen.</p>
+          <p style="margin:0 0 6px;color:#6B7280;font-size:13px">Anmeldung mit</p>
+          <p style="margin:0 0 14px;font-weight:bold">${targetEmail}</p>
+          <p style="font-size:22px;font-weight:bold;letter-spacing:2px;background:#F5F5F7;padding:14px 20px;border-radius:12px;margin:0 0 24px;font-family:monospace">${password}</p>
+          <a href="https://digitalcheck.p-zwei.ch/login" style="display:inline-block;background:#1C1C1E;color:#fff;text-decoration:none;padding:12px 24px;border-radius:14px;font-weight:bold">Zur Anmeldung</a>
         </div>`,
     }).catch(console.error)
   }
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE: User entfernen (nur Admins)
 export async function DELETE(req: NextRequest) {
-  const session = getSessionUser(req)
+  const session = await getActiveUser(req)
   if (!session?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   const userEmail = session.email
 

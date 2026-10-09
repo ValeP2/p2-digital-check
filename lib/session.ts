@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { NextRequest } from 'next/server'
-import { isAdmin } from './userStore'
+import { isAdmin, userStillActive } from './userStore'
 
 // Signiertes Session-Cookie: "<email base64url>.<ablauf ms>.<hmac>"
 // Nur der Server kann es ausstellen – ein selbst gesetztes Cookie besteht die Prüfung nicht.
@@ -40,4 +40,23 @@ export function verifySessionToken(token: string | undefined): SessionUser | nul
 
 export function getSessionUser(req: NextRequest): SessionUser | null {
   return verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value)
+}
+
+/**
+ * Wie getSessionUser, prüft zusätzlich, ob der Zugang noch besteht. Das
+ * signierte Cookie allein gälte nach dem Entfernen eines Users noch bis zu 30
+ * Tage — für alles, was Kosten verursacht oder Daten zeigt, deshalb diese.
+ */
+export async function getActiveUser(req: NextRequest): Promise<SessionUser | null> {
+  const user = getSessionUser(req)
+  if (!user) return null
+  return (await userStillActive(user.email)) ? user : null
+}
+
+/** Für Server-Seiten (ohne NextRequest): dieselbe Prüfung über die Cookies. */
+export async function getActiveUserFromCookies(): Promise<SessionUser | null> {
+  const { cookies } = await import('next/headers')
+  const user = verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value)
+  if (!user) return null
+  return (await userStillActive(user.email)) ? user : null
 }

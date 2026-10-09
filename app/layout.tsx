@@ -1,19 +1,23 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+
+// Dieselbe Schrift wie im Kompass
+const inter = Inter({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-inter",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "P2 Digital Check",
-  description: "Internes Website-Analyse-Tool",
-};
+  description: "Website-Analyse für Schweizer KMU",
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="de" className="h-full">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="de-CH" className={`${inter.variable} h-full`}>
+      <body className="min-h-full">{children}</body>
     </html>
-  );
+  )
 }

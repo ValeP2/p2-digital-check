@@ -161,7 +161,8 @@ function entityFromLine(line: string): string | null {
   // kleingeschriebenen Wort ("ist die …") endet der Name.
   for (let i = tokens.length - 1; i >= 0 && picked.length < 6; i--) {
     const token = tokens[i]
-    if (token === '&' || token === '-' || /^[A-ZÄÖÜ0-9][\wäöüéèàÄÖÜ&.'’\-]*$/.test(token)) picked.unshift(token)
+    // "/" gehört dazu: Sonst wird aus "P2/ Kommunikation AG" nur "Kommunikation AG".
+    if (token === '&' || token === '-' || /^[A-ZÄÖÜ0-9][\wäöüéèàÄÖÜ&.'’/\-]*$/.test(token)) picked.unshift(token)
     else break
   }
   if (picked.length === 0) return null

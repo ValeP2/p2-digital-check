@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { redis } from './redis'
+import { redis as upstash } from './redis'
 import type { CheckResult } from './check/types'
 
 // ── Gespeicherte Checks (Version 2) ──────────────────────────────
@@ -29,6 +29,17 @@ export interface HistoryEntryV2 {
   overall: number | null
   costChf: number
 }
+
+// Lokal ist kein Redis eingerichtet. Damit sich Ablauf und Ansicht trotzdem
+// prüfen lassen, hält die Entwicklungsumgebung die Daten im Arbeitsspeicher
+// (weg nach Neustart). In Produktion gibt es diesen Rückfall nicht.
+type Store = { get<T>(k: string): Promise<T | null>; set(k: string, v: string, o?: { ex: number }): Promise<unknown> }
+const memory = ((globalThis as { __p2dcMemory?: Map<string, string> }).__p2dcMemory ??= new Map<string, string>())
+const memoryStore: Store = {
+  async get<T>(k: string) { return (memory.get(k) ?? null) as T | null },
+  async set(k: string, v: string) { memory.set(k, v); return 'OK' },
+}
+const redis: Store | null = upstash ?? (process.env.NODE_ENV === 'development' ? memoryStore : null)
 
 const TTL_SECONDS = 60 * 60 * 24 * 365
 const HISTORY_MAX = 100

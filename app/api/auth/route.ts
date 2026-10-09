@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyUser } from '@/lib/userStore'
-import { createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/session'
+import { createSessionToken, getActiveUser, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/session'
+
+// Wer ist angemeldet? Für die Oberfläche (Anzeige, Admin-Menü) — die Rechte
+// prüft jede Route selbst.
+export async function GET(req: NextRequest) {
+  const user = await getActiveUser(req)
+  return user ? NextResponse.json(user) : NextResponse.json(null, { status: 401 })
+}
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json() as { email?: string; password?: string }

@@ -1,17 +1,51 @@
 import { getAnalysis } from '@/lib/analysisStore'
+import { getCheck } from '@/lib/checkStore'
 import { ScoreDashboard, MarkdownRenderer, ExportButton, Scores } from '@/app/components/ReportView'
+import { CheckReport } from '@/app/components/check/CheckReport'
 import LogoP2 from '@/app/components/LogoP2'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
 
+// Öffentlicher Link für Kunden. Version 2 im Kompass-Look; alte Analysen
+// (Version 1, bis Oktober 2026) weiterhin in ihrer ursprünglichen Darstellung.
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const check = await getCheck(id)
+  return {
+    title: check ? `Digital Check – ${check.result.firma.name}` : 'P2 Digital Check',
+    robots: { index: false, follow: false },
+  }
+}
+
 export default async function AnalysisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const check = await getCheck(id)
+  if (check) {
+    const previous = check.previousId ? await getCheck(check.previousId) : null
+    return (
+      <div className="min-h-screen">
+        <header className="max-w-[1080px] mx-auto px-4 md:px-10 pt-8 flex items-center justify-between">
+          <div className="flex items-center gap-2.5"><LogoP2 height={22} color="#1C1C1E" /><span className="text-[14px] font-semibold pt-0.5">Digital Check</span></div>
+          <a href="mailto:hello@p-zwei.ch" className="text-[13px] text-muted-foreground hover:text-foreground">hello@p-zwei.ch</a>
+        </header>
+        <main className="max-w-[1080px] mx-auto px-4 md:px-10 py-8 md:py-10">
+          <CheckReport check={check} previous={previous} internal={false} />
+        </main>
+        <footer className="max-w-[1080px] mx-auto px-4 md:px-10 pb-12 text-center text-[12px] text-muted-foreground">
+          P2/ Kommunikation AG · Silbergasse 6 · 2502 Biel/Bienne · <a href="https://www.p-zwei.ch" className="hover:text-foreground">p-zwei.ch</a>
+        </footer>
+      </div>
+    )
+  }
+
   const analysis = await getAnalysis(id)
 
   if (!analysis) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: '#293263', color: '#EBEACC' }}>
-        <LogoP2 height={32} />
+        <LogoP2 height={32} color="#EBEACC" />
         <p className="mt-6 text-base" style={{ color: 'rgba(235,234,204,0.6)' }}>Analyse nicht gefunden oder abgelaufen.</p>
       </div>
     )
@@ -25,7 +59,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
       {/* Header */}
       <header className="px-8 pt-7 pb-10 flex items-center justify-between sticky top-0 z-20"
         style={{ background: 'linear-gradient(to bottom, #293263 0%, #293263 45%, rgba(41,50,99,0.85) 70%, rgba(41,50,99,0) 100%)' }}>
-        <LogoP2 height={30} />
+        <LogoP2 height={30} color="#EBEACC" />
         <span className="text-sm" style={{ color: 'rgba(235,234,204,0.4)' }}>
           {new Date(analysis.date).toLocaleDateString('de-CH')}
         </span>

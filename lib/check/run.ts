@@ -139,7 +139,13 @@ function assemble(args: {
   return { dimensionen, massnahmen }
 }
 
-export async function runCheck(rawUrl: string, onProgress: Progress = () => {}): Promise<CheckResult> {
+/** Austauschbare Schritte — nur für den lokalen Beispiel-Modus (ohne KI-Kosten). */
+export interface CheckDeps {
+  research?: typeof researchVisibility
+  analyse?: (prompt: string) => Promise<ModelOutput>
+}
+
+export async function runCheck(rawUrl: string, onProgress: Progress = () => {}, deps: CheckDeps = {}): Promise<CheckResult> {
   const started = Date.now()
   const usage = emptyUsage()
 
@@ -154,10 +160,11 @@ export async function runCheck(rawUrl: string, onProgress: Progress = () => {}):
 
   onProgress('Externe Sichtbarkeit wird recherchiert')
   const searchesBefore = usage.webSearches
-  const research = await researchVisibility(crawl, usage)
+  const research = await (deps.research ?? researchVisibility)(crawl, usage)
 
   onProgress(`Analyse mit ${crawl.pages.length} Seiten startet`)
-  const output = await analyse(buildUserPrompt({ crawl, measured, research }), usage, onProgress)
+  const prompt = buildUserPrompt({ crawl, measured, research })
+  const output = deps.analyse ? await deps.analyse(prompt) : await analyse(prompt, usage, onProgress)
 
   const { dimensionen, massnahmen } = assemble({ measured, output })
   const overall = overallScore(dimensionen)

@@ -1,52 +1,90 @@
 @import "tailwindcss";
 
+/* ── Gestaltung wie P2 Kompass (heller Look) ─────────────────────
+   Werte aus kompass/src/app/globals.css übernommen, damit beide Werkzeuge
+   wie aus einer Hand wirken. Farben stehen als Token, nicht inline — der
+   alte Digital Check hatte Hex-Werte an hunderten Stellen. */
+
 :root {
-  --p2-bg: #293263;
-  --p2-cream: #EBEACC;
-  --p2-cream-muted: rgba(235, 234, 204, 0.5);
-  --p2-cream-faint: rgba(235, 234, 204, 0.12);
-  --p2-cream-border: rgba(235, 234, 204, 0.18);
+  --background: #F5F5F7;
+  --foreground: #1C1C1E;
+  --card: #FFFFFF;
+  --muted: #F5F5F7;
+  --muted-foreground: #6B7280;
+  --border: rgba(0, 0, 0, 0.08);
+  --primary: #7B6FEF;
+  --primary-foreground: #FFFFFF;
+  --good: #10b981;
+  --warn: #f59e0b;
+  --bad: #FF6B8A;
+  --radius: 1.25rem;
 }
 
 @theme inline {
-  --color-background: var(--p2-bg);
-  --color-foreground: var(--p2-cream);
-  --font-sans: 'Avenir Next', 'Avenir', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Radien wie im Kompass: innen immer eine Stufe kleiner als aussen */
+  --radius-xs: calc(var(--radius) * 0.4);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
 }
 
 * { box-sizing: border-box; }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.fade-in-up {
-  animation: fadeInUp 0.4s ease forwards;
-}
-@keyframes fadeInRow {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.fade-in-row {
-  opacity: 0;
-  animation: fadeInRow 0.3s ease forwards;
-}
-@keyframes countUp {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--p2-bg);
-  color: var(--p2-cream);
-  font-family: 'Avenir Next', 'Avenir', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  -webkit-font-smoothing: antialiased;
+.card-shadow {
+  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.07), 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.35s ease both; }
+
+/* Laufende Analyse: Schriftzug mit wanderndem Verlauf (aus dem Kompass) */
+@keyframes analyseVerlauf {
+  from { background-position: 0% center; }
+  to   { background-position: -200% center; }
+}
+.analyse-verlauf {
+  background-image: linear-gradient(100deg, var(--primary) 0%, #C9C3FA 20%, var(--primary) 40%, #C9C3FA 60%, var(--primary) 80%, #C9C3FA 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: analyseVerlauf 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analyse-verlauf { animation: none; }
+  .fade-in-up { animation: none; }
 }
 
 @media print {
-  body { background: white !important; color: #111 !important; }
-  header, .no-print { display: none !important; }
-  h2 { color: #293263 !important; border-color: #e5e7eb !important; }
-  h3 { color: #293263 !important; }
-  p, li { color: #374151 !important; }
+  body { background: white !important; }
+  .no-print { display: none !important; }
+  .card-shadow { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+  .print-break { break-before: page; }
+  details > *:not(summary) { display: block !important; }
 }

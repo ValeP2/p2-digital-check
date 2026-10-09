@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server'
 import { generatePptx } from '@/lib/generatePptx'
-import { getSessionUser } from '@/lib/session'
+import { getActiveUser } from '@/lib/session'
+
+// Nur noch für das Archiv: PowerPoint aus einer alten Analyse (Version 1).
+// Checks ab Version 2 laufen über /api/export-pptx-public?id=…
 
 export const maxDuration = 30
 
@@ -11,7 +14,7 @@ interface Scores {
 }
 
 export async function POST(req: NextRequest) {
-  if (!getSessionUser(req)) {
+  if (!await getActiveUser(req)) {
     return new Response('Unauthorized', { status: 401 })
   }
 
