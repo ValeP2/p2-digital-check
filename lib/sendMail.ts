@@ -12,7 +12,7 @@ const TO: string[] = (process.env.MAIL_TO || 'hello@p-zwei.ch')
 export async function sendAnalysisMail(opts: {
   companyName: string
   url: string
-  score: number
+  score: number | null
   link: string
 }): Promise<boolean> {
   if (!resend) {
@@ -23,7 +23,7 @@ export async function sendAnalysisMail(opts: {
     await resend.emails.send({
       from: FROM,
       to: TO,
-      subject: `Digitalcheck fertig: ${opts.companyName} (Score ${opts.score}/10)`,
+      subject: `Digitalcheck fertig: ${opts.companyName}${opts.score !== null ? ` (Score ${opts.score}/100)` : ''}`,
       html: `
         <div style="font-family:Arial,sans-serif;background:#293263;color:#EBEACC;padding:32px;border-radius:12px;max-width:520px">
           <h2 style="color:#EBEACC;margin:0 0 8px">P2/ Digitalcheck</h2>
@@ -31,7 +31,7 @@ export async function sendAnalysisMail(opts: {
           <table style="color:#EBEACC;font-size:14px;margin-bottom:24px">
             <tr><td style="padding:4px 16px 4px 0;opacity:0.6">Unternehmen</td><td><strong>${opts.companyName}</strong></td></tr>
             <tr><td style="padding:4px 16px 4px 0;opacity:0.6">Website</td><td>${opts.url}</td></tr>
-            <tr><td style="padding:4px 16px 4px 0;opacity:0.6">Gesamtscore</td><td><strong>${opts.score}/10</strong></td></tr>
+            <tr><td style="padding:4px 16px 4px 0;opacity:0.6">Gesamtscore</td><td><strong>${opts.score !== null ? `${opts.score}/100` : 'nicht bewertet'}</strong></td></tr>
           </table>
           <a href="${opts.link}" style="display:inline-block;background:#EBEACC;color:#293263;text-decoration:none;padding:12px 24px;border-radius:999px;font-weight:bold">Analyse ansehen →</a>
           <p style="color:rgba(235,234,204,0.4);font-size:12px;margin-top:24px">${opts.link}</p>
