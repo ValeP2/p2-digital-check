@@ -146,7 +146,8 @@ export function CheckReport({ check, previous, internal }: { check: StoredCheck;
   return (
     <div className="space-y-10">
       {/* ── Kopf ── */}
-      <Card className="p-7 md:p-9 fade-in-up">
+      {/* Kopf mit leichtem Violett-Verlauf (Kompass: --gradient-hero) */}
+      <Card className="p-7 md:p-9 fade-in-up !bg-[linear-gradient(135deg,rgba(123,111,239,0.13)_0%,rgba(255,255,255,1)_45%,rgba(255,107,138,0.07)_100%)]">
         <div className="flex flex-col md:flex-row md:items-start gap-7">
           <div className="flex items-center gap-5 shrink-0">
             <ScoreRing score={r.overall} size="lg" />

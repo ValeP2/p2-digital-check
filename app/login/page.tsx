@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-import LogoP2 from '../components/LogoP2'
+import Brand from '../components/Brand'
 import { APP_VERSION } from '../components/AppShell'
-import { FELD, KNOPF, cn } from '../components/ui'
+import { FELD, cn } from '../components/ui'
 
 // Anmeldung im Kompass-Stil (anmelde-rahmen.tsx): violetter Grund, weisse Karte.
 
@@ -45,10 +45,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-10"
       style={{ background: 'radial-gradient(circle at 12% 8%, #9C8FFF 0%, #7B6FEF 38%, #5B4FD1 72%, #4238A8 100%)' }}>
       <div className="w-full max-w-[400px]">
-        <div className="flex items-center gap-3 justify-center mb-10 text-white">
-          <LogoP2 height={28} color="#FFFFFF" />
-          <span className="font-semibold text-[17px] pt-1">Digital Check</span>
-        </div>
+        <div className="flex justify-center mb-10"><Brand height={30} size={18} color="#FFFFFF" /></div>
 
         <div className="bg-white rounded-xl p-8 shadow-xl">
           <h1 className="font-semibold text-[20px] text-foreground mb-1">Anmelden</h1>
@@ -66,7 +63,7 @@ export default function LoginPage() {
               </button>
             </div>
             {error && <p role="alert" className="text-[13px] text-red-600 leading-relaxed rounded-lg bg-red-50 border border-red-100 px-3.5 py-2.5">{error}</p>}
-            <button type="submit" disabled={loading || !email || !password} className={cn(KNOPF, 'w-full')}>
+            <button type="submit" disabled={loading || !email || !password} className={cn('w-full inline-flex items-center justify-center gap-2 pt-3 pb-2.5 rounded-md bg-[#1C1C1E] text-white text-[14px] font-medium hover:bg-[#2C2C2E] transition-colors disabled:opacity-50')}>
               {loading && <Loader2 className="w-4 h-4 animate-spin" />} {loading ? 'Wird geprüft …' : 'Anmelden'}
             </button>
           </form>

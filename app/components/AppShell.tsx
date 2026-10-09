@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Plus, Users, LogOut, Menu, X, Trash2, Archive } from 'lucide-react'
-import LogoP2 from './LogoP2'
+import Brand from './Brand'
 import UserManager from './UserManager'
-import { cn, scoreColor } from './ui'
+import { cn, ScoreRing, scoreColor, VERLAUF_KNOPF } from './ui'
 import type { HistoryItem } from '../api/history/route'
 
 export const APP_VERSION = '2.0.0'
@@ -28,15 +28,15 @@ function shortDate(iso: string): string {
 function HistoryRow({ item, active, onDelete }: { item: HistoryItem; active: boolean; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const href = item.version === 2 ? `/check/${item.id}` : `/archiv/${item.id}`
-  const color = item.version === 2 ? scoreColor(item.score) : '#9CA3AF'
+  // Alte Analysen (Skala 1–10) bekommen die Farbe ihres Gegenwerts auf 100,
+  // die Zahl bleibt die alte — sonst sähe eine 7 aus wie eine 70.
+  const color = item.score === null ? '#9CA3AF' : scoreColor(item.version === 2 ? item.score : item.score * 10)
   return (
-    <div className={cn('group relative rounded-lg transition-colors', active ? 'bg-primary/10' : 'hover:bg-black/[0.04]')}>
-      <Link href={href} className="flex items-center gap-2.5 pl-3 pr-9 py-2">
-        <span className="w-8 text-right text-[13px] font-semibold tabular-nums shrink-0" style={{ color }}>
-          {item.score ?? '–'}{item.version === 1 && <span className="text-[10px] font-normal">/10</span>}
-        </span>
+    <div className={cn('group relative rounded-lg transition-colors', active ? 'bg-primary/10' : 'hover:bg-primary/[0.05]')}>
+      <Link href={href} className="flex items-center gap-3 pl-2.5 pr-9 py-2">
+        <ScoreRing score={item.score} size="xs" color={color} />
         <span className="min-w-0">
-          <span className={cn('block text-[13px] truncate', active ? 'font-semibold text-foreground' : 'text-foreground/85')}>{item.companyName || host(item.url)}</span>
+          <span className={cn('block text-[13px] truncate', active ? 'font-semibold text-primary' : 'text-foreground/85')}>{item.companyName || host(item.url)}</span>
           <span className="block text-[11px] text-muted-foreground truncate">
             {item.version === 1 && <Archive className="inline w-3 h-3 -mt-0.5 mr-1" />}{host(item.url)} · {shortDate(item.date)}
           </span>
@@ -91,14 +91,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full">
       <div className="px-5 pt-6 pb-5 flex items-center gap-2.5">
-        <LogoP2 height={22} color="#1C1C1E" />
-        <span className="text-[14px] font-semibold text-foreground pt-0.5">Digital Check</span>
+        <Brand height={24} size={15} />
       </div>
 
       <div className="px-3">
         <Link href="/" onClick={onNavigate}
-          className={cn('flex items-center gap-2 px-3 py-2.5 rounded-md text-[14px] font-medium transition-colors',
-            pathname === '/' ? 'bg-foreground text-white' : 'text-foreground hover:bg-black/[0.04]')}>
+          style={{ background: VERLAUF_KNOPF }}
+          className={cn('flex items-center gap-2 px-3 py-2.5 rounded-md text-[14px] font-medium text-white transition-[filter] hover:brightness-110',
+            pathname === '/' ? 'shadow-[0_4px_14px_rgba(91,79,209,0.35)]' : '')}>
           <Plus className="w-4 h-4" /> Neuer Check
         </Link>
       </div>
@@ -140,7 +140,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       {/* Telefon: Kopfleiste mit Menü */}
       <header className="no-print md:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-14 bg-[#FAFAFB]/95 backdrop-blur border-b border-black/5">
-        <div className="flex items-center gap-2"><LogoP2 height={18} color="#1C1C1E" /><span className="text-[13px] font-semibold pt-0.5">Digital Check</span></div>
+        <Brand height={20} size={14} />
         <button onClick={() => setOpen(true)} aria-label="Menü öffnen" className="w-9 h-9 rounded-sm flex items-center justify-center hover:bg-black/5"><Menu className="w-5 h-5" /></button>
       </header>
       {open && (

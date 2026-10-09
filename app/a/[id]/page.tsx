@@ -3,6 +3,7 @@ import { getCheck } from '@/lib/checkStore'
 import { ScoreDashboard, MarkdownRenderer, ExportButton, Scores } from '@/app/components/ReportView'
 import { CheckReport } from '@/app/components/check/CheckReport'
 import LogoP2 from '@/app/components/LogoP2'
+import Brand from '@/app/components/Brand'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +28,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
     return (
       <div className="min-h-screen">
         <header className="max-w-[1080px] mx-auto px-4 md:px-10 pt-8 flex items-center justify-between">
-          <div className="flex items-center gap-2.5"><LogoP2 height={22} color="#1C1C1E" /><span className="text-[14px] font-semibold pt-0.5">Digital Check</span></div>
+          <Brand height={24} size={15} />
           <a href="mailto:hello@p-zwei.ch" className="text-[13px] text-muted-foreground hover:text-foreground">hello@p-zwei.ch</a>
         </header>
         <main className="max-w-[1080px] mx-auto px-4 md:px-10 py-8 md:py-10">
