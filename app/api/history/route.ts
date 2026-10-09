@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserHistory, saveUserHistory } from '@/lib/userStore'
+import { getSessionUser } from '@/lib/session'
 
 function getUserEmail(req: NextRequest): string {
-  return req.cookies.get('p2-user')?.value || ''
+  return getSessionUser(req)?.email || ''
 }
 
 export async function GET(req: NextRequest) {

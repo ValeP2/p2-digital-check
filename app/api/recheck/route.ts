@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { crawlWebsite } from '@/lib/crawler'
 import { buildPrompt } from '@/lib/prompt'
-import { verifyUser } from '@/lib/userStore'
+import { getSessionUser } from '@/lib/session'
 
 export const maxDuration = 250
 
@@ -11,11 +11,7 @@ const SCORE_KEYS = ['positionierung','angebot','zielgruppe','vertrauen','convers
 
 export async function POST(req: NextRequest) {
   // Auth: Admin-Passwort oder eingeladener User
-  const session = req.cookies.get('p2-session')?.value
-  const userEmail = req.cookies.get('p2-user')?.value || ''
-  const isValidSession = session === process.env.APP_PASSWORD ||
-    (userEmail && await verifyUser(userEmail, session || '').then(u => !!u).catch(() => false))
-  if (!isValidSession) return new Response('Unauthorized', { status: 401 })
+  if (!getSessionUser(req)) return new Response('Unauthorized', { status: 401 })
 
   const { url } = await req.json() as { url: string }
   if (!url) return NextResponse.json({ error: 'keine url' }, { status: 400 })

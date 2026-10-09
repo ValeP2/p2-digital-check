@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSessionUser } from './lib/session'
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
@@ -17,11 +18,7 @@ export function proxy(req: NextRequest) {
     return NextResponse.next()
   }
 
-  const session = req.cookies.get('p2-session')?.value
-  const authFlag = req.cookies.get('p2-auth')?.value
-  // Admin-Login: Passwort direkt. Eingeladene User: p2-auth=1 (gesetzt nach verifyUser)
-  const isAuthed = session === process.env.APP_PASSWORD || authFlag === '1'
-  if (!isAuthed) {
+  if (!getSessionUser(req)) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 

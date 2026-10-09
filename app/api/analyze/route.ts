@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { crawlWebsite } from '@/lib/crawler'
 import { buildPrompt } from '@/lib/prompt'
 import { addCost } from '@/lib/costStore'
+import { getSessionUser } from '@/lib/session'
 
 export const maxDuration = 300
 
@@ -18,8 +19,7 @@ const USD_TO_CHF = 0.90
 const DEMO_MODE = process.env.DEMO_MODE === 'true'
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get('p2-session')?.value
-  if (session !== process.env.APP_PASSWORD) {
+  if (!getSessionUser(req)) {
     return new Response('Unauthorized', { status: 401 })
   }
 

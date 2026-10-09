@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { saveAnalysis } from '@/lib/analysisStore'
+import { getSessionUser } from '@/lib/session'
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get('p2-session')?.value
-  if (session !== process.env.APP_PASSWORD) {
+  if (!getSessionUser(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

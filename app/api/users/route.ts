@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllUsers, saveUser, deleteUser, generatePassword, isAdmin, verifyUser, ADMIN_EMAILS } from '@/lib/userStore'
+import { getAllUsers, saveUser, deleteUser, generatePassword, ADMIN_EMAILS } from '@/lib/userStore'
+import { getSessionUser } from '@/lib/session'
 import { Resend } from 'resend'
 
 // GET: User-Liste (nur Admins)
 export async function GET(req: NextRequest) {
-  const userEmail = req.cookies.get('p2-user')?.value || ''
-  if (!isAdmin(userEmail)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  const session = getSessionUser(req)
+  if (!session?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  const userEmail = session.email
   const users = await getAllUsers()
   return NextResponse.json({ users })
 }
 
 // POST: User einladen (nur Admins)
 export async function POST(req: NextRequest) {
-  const userEmail = req.cookies.get('p2-user')?.value || ''
-  if (!isAdmin(userEmail)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  const session = getSessionUser(req)
+  if (!session?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  const userEmail = session.email
 
   const { email, name } = await req.json() as { email: string; name?: string }
   if (!email) return NextResponse.json({ error: 'E-Mail fehlt' }, { status: 400 })
@@ -62,8 +65,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE: User entfernen (nur Admins)
 export async function DELETE(req: NextRequest) {
-  const userEmail = req.cookies.get('p2-user')?.value || ''
-  if (!isAdmin(userEmail)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  const session = getSessionUser(req)
+  if (!session?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  const userEmail = session.email
 
   const { email } = await req.json() as { email: string }
   if (!email) return NextResponse.json({ error: 'E-Mail fehlt' }, { status: 400 })

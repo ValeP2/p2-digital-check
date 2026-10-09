@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTotals } from '@/lib/costStore'
+import { getSessionUser } from '@/lib/session'
 
 export async function GET(req: NextRequest) {
-  const session = req.cookies.get('p2-session')?.value
-  if (session !== process.env.APP_PASSWORD) {
+  if (!getSessionUser(req)) {
     return new Response('Unauthorized', { status: 401 })
   }
   const totals = await getTotals()
