@@ -6,8 +6,8 @@
       23/24 bzw. 27/28 KI-Urteile zwischen Läufen identisch, Gesamt 81/82/81
 - [x] Zeitlimit 600 s — Vercel-Vorschau baut damit (Projekt erlaubt es)
 - [x] `PAGESPEED_API_KEY` angelegt (Google-Projekt «P2 Digital Check»), lokal eingetragen
-- [ ] `PAGESPEED_API_KEY` in Vercel (Digital-Check-Projekt, Production + Preview)
-- [ ] Vercel prüfen: `ANTHROPIC_API_KEY` = P2-Schlüssel (Workspace P2), `INTAKE_SECRET` gesetzt
+- [x] Vercel (09.10.2026): `PAGESPEED_API_KEY` Production + Preview, `ANTHROPIC_API_KEY` durch den P2-Schlüssel ersetzt, Production neu deployt; `INTAKE_SECRET` vorhanden
+- [ ] Nach dem Livegang: `DEMO_MODE` in Vercel löschen (wird von 2.0 nicht mehr gelesen)
 - [ ] Mindestens zwei weitere, ganz andere Websites prüfen (klassisches KMU, Onlineshop)
 - [ ] PowerPoint aller Folien in PowerPoint/Keynote ansehen (nur Titelfolie gerendert geprüft)
 - [ ] Framer-Formular einmal echt auslösen (Intake läuft jetzt über die neue Pipeline)
