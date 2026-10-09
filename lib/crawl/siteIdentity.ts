@@ -165,6 +165,10 @@ function entityFromLine(line: string): string | null {
     if (token === '&' || token === '-' || /^[A-ZÄÖÜ0-9][\wäöüéèàÄÖÜ&.'’/\-]*$/.test(token)) picked.unshift(token)
     else break
   }
+  // Am Satzanfang steht der Artikel gross ("Die P2/ Kommunikation AG, …") und
+  // käme sonst mit — er gehört aber nicht zum Namen. (Nachgezogen aus dem
+  // Kompass, Commit 7cbb04c. Preis: "Die Schweizerische Post AG" verliert das "Die".)
+  if (picked.length > 1 && /^(Der|Die|Das|Den|Dem|Des)$/.test(picked[0])) picked.shift()
   if (picked.length === 0) return null
   return `${picked.join(' ')} ${match[0]}`.replace(/\s{2,}/g, ' ').trim()
 }
