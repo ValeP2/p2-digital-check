@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { CrawlResult } from '../crawl/crawlerTypes'
+import type { StartInfo } from '../crawl/crawlWebsite'
 import { addUsage, anthropicClient, fehlerArt, RESEARCH_EFFORT, RESEARCH_MODEL, type Usage } from './anthropic'
 
 // ── Externe Sichtbarkeit recherchieren ───────────────────────────
@@ -17,28 +17,31 @@ Regeln:
 - Erfinde nichts. Keine Bewertungszahlen, Daten oder Profile, die du nicht in einem Suchergebnis gesehen hast.
 - Schweizer Rechtschreibung (ss).`
 
-function companyName(crawl: CrawlResult): string {
-  return crawl.identity.imprint.entity || crawl.companyName
-}
-
-function place(crawl: CrawlResult): string {
-  return crawl.identity.imprint.address?.match(/\d{4}\s+(.+)$/)?.[1]?.trim() ?? ''
-}
-
-export async function researchVisibility(crawl: CrawlResult, usage: Usage): Promise<string | null> {
+// Läuft parallel zum Crawl, sobald die Startseite gelesen ist (spart rund
+// eine halbe Minute). Deshalb nur, was die Startseite schon hergibt.
+export async function researchVisibility(start: StartInfo, usage: Usage): Promise<string | null> {
   const client = anthropicClient()
-  const host = new URL(crawl.inputUrl).hostname.replace(/^www\./, '')
-  const name = companyName(crawl)
-  const ort = place(crawl)
-  const social = crawl.socialProfiles.map(s => `${s.platform}: ${s.url}`).join('\n')
+  const host = new URL(start.url).hostname.replace(/^www\./, '')
+  const name = start.name
+  const social = start.socialProfiles.map(s => `${s.platform}: ${s.url}`).join('\n')
 
   const messages: Anthropic.MessageParam[] = [{
     role: 'user',
-    content: `Unternehmen: ${name}${ort ? `, ${ort}` : ''}
+    content: `Unternehmen: ${name}
 Website: ${host}
+Seitentitel der Startseite: ${start.title || '(leer)'}
+(Ist der Name oben offensichtlich ein Slogan statt eines Firmennamens, nimm den Firmennamen aus Titel oder Domain.)
 ${social ? `Von der Website verlinkte Profile:\n${social}` : 'Die Website verlinkt keine Social-Media-Profile.'}
 
-Recherchiere mit höchstens 5 Suchen und berichte unter genau diesen Überschriften:
+Stelle genau diese Suchen (höchstens 6), damit jeder Lauf gleich gründlich ist:
+a) "${name}" mit Ort, um ein Google-Unternehmensprofil mit Bewertungen zu finden
+b) "${name}" local.ch
+c) "${name}" search.ch
+d) "${name}" LinkedIn Instagram Facebook
+e) "${name}" mit Branche, für Presse- und Branchenerwähnungen
+f) nur falls nötig: eine Nachsuche bei Namensgleichheit oder unklarem Ergebnis
+
+Berichte danach unter genau diesen Überschriften:
 
 1. Google-Unternehmensprofil: vorhanden? Durchschnittsbewertung und Anzahl Bewertungen, falls sichtbar.
 2. Verzeichnisse: Einträge auf local.ch, search.ch oder relevanten Branchenportalen.
@@ -53,10 +56,13 @@ Pro Punkt höchstens 3 Sätze. Schreibe "nicht gefunden" oder "unklar", wo es zu
     for (let runde = 0; runde < 3; runde++) {
       const msg = await client.messages.create({
         model: RESEARCH_MODEL,
-        max_tokens: 6000,
+        max_tokens: 10000, // Nachdenken zählt mit
         system: SYSTEM,
         output_config: { effort: RESEARCH_EFFORT },
-        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5, user_location: { type: 'approximate', country: 'CH' } }],
+        // Bewusst die einfache Websuche (wie im Kompass): Die Variante mit
+        // automatischer Filterung (_20260209) verbrauchte beim Test am
+        // 09.10.2026 Suchen für ein internes Skript — übrig blieb eine.
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6, user_location: { type: 'approximate', country: 'CH' } }],
         messages,
       } as Anthropic.MessageCreateParamsNonStreaming, { timeout: 90_000 })
       addUsage(usage, RESEARCH_MODEL, msg.usage)

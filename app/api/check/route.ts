@@ -6,7 +6,7 @@ import { fehlerText } from '@/lib/check/anthropic'
 import { appendHistory, getCheck, historyEntry, newCheckId, saveCheck } from '@/lib/checkStore'
 import { addCost } from '@/lib/costStore'
 
-export const maxDuration = 300
+export const maxDuration = 600
 
 // Ein Check als Ereignisstrom: "progress" während der Arbeit, am Ende
 // "result" mit dem gespeicherten Check — oder "error" mit verständlichem Text.

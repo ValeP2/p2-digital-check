@@ -17,7 +17,7 @@ import type { DimensionKey, Quelle, Urteil } from './types'
 // hochzählen. Sie wird mit jedem Ergebnis gespeichert, damit ein Vergleich
 // zwischen zwei Läufen erkennbar nur dann gilt, wenn beide gleich gerechnet
 // wurden.
-export const KALIBRIERUNG = 'kriterien-v1 (2026-10-09)'
+export const KALIBRIERUNG = 'kriterien-v2 (2026-10-09)'
 
 export interface MeasureContext {
   crawl: CrawlResult
@@ -314,7 +314,9 @@ export const DIMENSIONS: DimensionDef[] = [
     key: 'externe_sichtbarkeit', label: 'Externe Sichtbarkeit', gewicht: 8,
     frage: 'Ist das Unternehmen ausserhalb der eigenen Website präsent?',
     kriterien: [
-      { id: 'E1', label: 'Google-Unternehmensprofil mit Bewertungen', gewicht: 3, quelle: 'recherche',
+      // Gewicht 2 statt 3: Per Websuche ist ein Google-Profil oft nicht eindeutig
+      // feststellbar (meist "nicht prüfbar") — es soll den Bereich nicht dominieren.
+      { id: 'E1', label: 'Google-Unternehmensprofil mit Bewertungen', gewicht: 2, quelle: 'recherche',
         pruefen: 'Laut Recherche gibt es ein Google-Unternehmensprofil mit Bewertungen. Erfüllt: Profil mit Bewertungen; teilweise: Profil ohne/mit sehr wenigen Bewertungen; nicht_pruefbar, wenn die Recherche dazu nichts Eindeutiges ergab.' },
       { id: 'E2', label: 'Einträge in Verzeichnissen', gewicht: 1, quelle: 'recherche',
         pruefen: 'Laut Recherche ist das Unternehmen in Schweizer Verzeichnissen (local.ch, search.ch) oder relevanten Branchenportalen eingetragen.' },

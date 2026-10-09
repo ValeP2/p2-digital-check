@@ -76,6 +76,9 @@ function DimensionCard({ d, before }: { d: DimensionResult; before?: DimensionRe
             <Delta now={d.score} before={before?.score} />
           </div>
           <p className="text-[12.5px] text-muted-foreground mt-0.5">{DIMENSION_BY_KEY[d.key].frage}</p>
+          {d.score === null && (
+            <p className="text-[12.5px] text-warn mt-1">Nicht bewertet: Zu wenige Prüfpunkte waren prüfbar, um eine belastbare Zahl zu nennen.</p>
+          )}
           <div className="mt-2"><BasisBadge basis={d.basis} /></div>
         </div>
       </div>

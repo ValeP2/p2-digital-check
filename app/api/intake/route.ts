@@ -5,7 +5,7 @@ import { newCheckId, saveCheck } from '@/lib/checkStore'
 import { sendAnalysisMail } from '@/lib/sendMail'
 import { addCost } from '@/lib/costStore'
 
-export const maxDuration = 300
+export const maxDuration = 600
 
 export async function POST(req: NextRequest) {
   // Secret prüfen

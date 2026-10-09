@@ -7,45 +7,21 @@ import { DIMENSION_KEYS, HORIZONTE, LEVELS, URTEILE } from './types'
 // JSON nach diesem Schema. Der alte Digital Check las die Zahlen per Suchmuster
 // aus einer Textantwort und setzte still eine 5, wenn eine fehlte.
 //
-// Jeder Prüfpunkt ist ein eigenes Pflichtfeld — so kann das Modell keinen
-// auslassen und keinen erfinden. Messungen stehen nicht im Schema: Sie werden
-// gemessen, nicht gefragt.
+// Urteile als eine Liste statt als je ein Pflichtfeld pro Prüfpunkt: Mit 28
+// verschachtelten Pflichtfeldern lehnte Anthropic das Schema ab ("compiled
+// grammar is too large", erster echter Lauf am 09.10.2026). Die Prüfpunkt-ID
+// ist eine Aufzählung — erfinden kann das Modell keine. Fehlt ein Urteil,
+// zählt der Punkt als "nicht prüfbar" (run.ts), nie als Durchschnitt.
+// Messungen stehen nicht im Schema: Sie werden gemessen, nicht gefragt.
 
 const str = (description?: string) => ({ type: 'string' as const, ...(description ? { description } : {}) })
 
-function dimensionSchema(key: typeof DIMENSION_KEYS[number]) {
-  const def = DIMENSIONS.find(d => d.key === key)!
-  const crits = modelCriteria(def)
-  return {
-    type: 'object' as const,
-    additionalProperties: false,
-    required: [...(crits.length ? ['kriterien'] : []), 'befund'],
-    properties: {
-      ...(crits.length ? {
-        kriterien: {
-          type: 'object' as const,
-          additionalProperties: false,
-          required: crits.map(c => c.id),
-          properties: Object.fromEntries(crits.map(c => [c.id, {
-            type: 'object' as const,
-            additionalProperties: false,
-            required: ['urteil', 'beleg'],
-            properties: {
-              urteil: { type: 'string' as const, enum: [...URTEILE] },
-              beleg: str('Fundstelle: Seite und kurzes Zitat oder konkrete Beobachtung, höchstens zwei Sätze'),
-            },
-          }])),
-        },
-      } : {}),
-      befund: str('2–4 Sätze für den Bericht: zuerst was trägt, dann die wichtigste Lücke mit Beleg'),
-    },
-  }
-}
+const MODEL_CRITERION_IDS = DIMENSIONS.flatMap(d => modelCriteria(d).map(c => c.id))
 
 export const CHECK_SCHEMA = {
   type: 'object' as const,
   additionalProperties: false,
-  required: ['firma', 'dimensionen', 'staerken', 'massnahmen', 'textbeispiele', 'fazit'],
+  required: ['firma', 'urteile', 'befunde', 'staerken', 'massnahmen', 'textbeispiele', 'fazit'],
   properties: {
     firma: {
       type: 'object' as const,
@@ -59,11 +35,25 @@ export const CHECK_SCHEMA = {
         region: str('Einzugsgebiet, oder "überregional"'),
       },
     },
-    dimensionen: {
+    urteile: {
+      type: 'array' as const,
+      description: `Genau ein Eintrag je Prüfpunkt (${MODEL_CRITERION_IDS.length} insgesamt), in der Reihenfolge des Katalogs`,
+      items: {
+        type: 'object' as const,
+        additionalProperties: false,
+        required: ['id', 'urteil', 'beleg'],
+        properties: {
+          id: { type: 'string' as const, enum: MODEL_CRITERION_IDS },
+          urteil: { type: 'string' as const, enum: [...URTEILE] },
+          beleg: str('Fundstelle: Seite und kurzes Zitat oder konkrete Beobachtung, höchstens zwei Sätze'),
+        },
+      },
+    },
+    befunde: {
       type: 'object' as const,
       additionalProperties: false,
       required: [...DIMENSION_KEYS],
-      properties: Object.fromEntries(DIMENSION_KEYS.map(k => [k, dimensionSchema(k)])),
+      properties: Object.fromEntries(DIMENSION_KEYS.map(k => [k, str('2–4 Sätze: zuerst was trägt, dann die wichtigste Lücke mit Beleg')])),
     },
     staerken: { type: 'array' as const, items: str(), description: '3–5 konkrete Stärken mit Bezug zur Fundstelle' },
     massnahmen: {
@@ -105,7 +95,8 @@ export const CHECK_SCHEMA = {
 /** Was das Modell liefert — Form folgt dem Schema. */
 export interface ModelOutput {
   firma: { name: string; branche: string; angebot: string; zielgruppe: string; region: string }
-  dimensionen: Record<string, { kriterien?: Record<string, { urteil: string; beleg: string }>; befund: string }>
+  urteile: { id: string; urteil: string; beleg: string }[]
+  befunde: Record<string, string>
   staerken: string[]
   massnahmen: { titel: string; beschreibung: string; dimension: string; prioritaet: string; wirkung: string; zeithorizont: string; schritte: string[] }[]
   textbeispiele: { seite: string; vorher: string; nachher: string }[]

@@ -17,7 +17,7 @@ const STUFEN = [
   { key: 'crawl', label: 'Website lesen', match: /Website wird gelesen|Gelesen|Nicht erreichbar/ },
   { key: 'mess', label: 'Ladezeit messen', match: /Ladezeit/ },
   { key: 'recherche', label: 'Externe Sichtbarkeit recherchieren', match: /recherchiert/ },
-  { key: 'analyse', label: 'Prüfpunkte beurteilen', match: /Analyse mit|Bewertet|Firmenprofil|überlastet/ },
+  { key: 'analyse', label: 'Prüfpunkte beurteilen', match: /Analyse mit|Prüfpunkte werden|Befunde|Firmenprofil|überlastet/ },
   { key: 'bericht', label: 'Massnahmen ableiten', match: /Stärken|Massnahmen|Textbeispiele|Fazit/ },
 ] as const
 

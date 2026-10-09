@@ -43,11 +43,30 @@ function canonical(url: string): string {
   }
 }
 
+/** Was nach der Startseite schon feststeht — genug, um die Recherche parallel zu starten. */
+export interface StartInfo { url: string; name: string; title: string; socialProfiles: { platform: string; url: string }[] }
+
+const ORG_TYPES = /Organization|LocalBusiness|Corporation|ProfessionalService|Store|Restaurant|Agency/i
+
+/** Name der Organisation aus JSON-LD, falls die Seite ihn maschinenlesbar angibt. */
+function organizationName(html: string): string | null {
+  for (const m of html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const data = JSON.parse(m[1])
+      const nodes = (Array.isArray(data) ? data : [data]).flatMap((n: Record<string, unknown>) => Array.isArray(n?.['@graph']) ? n['@graph'] as Record<string, unknown>[] : [n])
+      const org = nodes.find(n => ORG_TYPES.test(String(n?.['@type'] ?? '')) && typeof n?.name === 'string')
+      if (org) return String(org.name).trim()
+    } catch { /* kaputtes JSON-LD ignorieren */ }
+  }
+  return null
+}
+
 export async function crawlWebsite(
   rawInputUrl: string,
   // Optionale Rückmeldung pro gelesener Seite — der Crawl ist der längste
   // Abschnitt der Analyse, ohne Lebenszeichen wirkt die Anwendung dort tot.
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  onStart?: (info: StartInfo) => void,
 ): Promise<CrawlResult> {
   const requestedUrl = normalizeUrl(rawInputUrl)
   await assertPublicUrl(requestedUrl)
@@ -68,6 +87,19 @@ export async function crawlWebsite(
 
   // Startseite extrahieren
   const startPage = extractPageData(startHtml, inputUrl, startStatus)
+  {
+    const $s = cheerio.load(startHtml)
+    const siteName = ($s('meta[property="og:site_name"]').attr('content') ?? '').trim()
+    onStart?.({
+      url: inputUrl,
+      // Firmenname: strukturierte Daten vor og:site_name vor Seitentitel. Der
+      // Titel allein trifft oft den Slogan ("Kommunikationsagentur Biel/Bienne
+      // für KMU | P2/ Kommunikation" ergab den falschen Teil).
+      name: organizationName(startHtml) || siteName || startPage.title.replace(/[-|–—].*$/, '').trim() || new URL(inputUrl).hostname,
+      title: startPage.title,
+      socialProfiles: findSocialProfiles(startPage.externalLinks),
+    })
+  }
   const pages: PageData[] = [startPage]
   const unreachable: string[] = []
 

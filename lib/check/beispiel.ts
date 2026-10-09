@@ -17,13 +17,12 @@ export const BEISPIEL_DEPS: CheckDeps = {
     let i = 0
     return {
       firma: { name: 'Beispiel AG (Beispieldaten)', branche: 'Kommunikationsagentur', angebot: 'BEISPIEL: Strategie, Websites, Kampagnen und KI-Werkzeuge für KMU.', zielgruppe: 'BEISPIEL: Geschäftsleitungen von KMU und Organisationen.', region: 'Biel/Bienne und Deutschschweiz' },
-      dimensionen: Object.fromEntries(DIMENSIONS.map(d => [d.key, {
-        kriterien: Object.fromEntries(modelCriteria(d).map(c => [c.id, {
-          urteil: URTEILE[i++ % URTEILE.length],
-          beleg: `BEISPIEL: Startseite «Wir machen Kommunikation, die wirkt» — hier stünde die konkrete Fundstelle zu ${c.label.toLowerCase()}.`,
-        }])),
-        befund: `BEISPIEL: Was im Bereich ${d.label} bereits trägt, steht hier zuerst — etwa eine klare Hauptüberschrift. Danach folgt die wichtigste Lücke mit Beleg und der Hinweis, ob sie dringend ist oder den langfristigen Aufbau betrifft.`,
-      }])),
+      urteile: DIMENSIONS.flatMap(d => modelCriteria(d).map(c => ({
+        id: c.id,
+        urteil: URTEILE[i++ % URTEILE.length],
+        beleg: `BEISPIEL: Startseite «Wir machen Kommunikation, die wirkt» — hier stünde die konkrete Fundstelle zu ${c.label.toLowerCase()}.`,
+      }))),
+      befunde: Object.fromEntries(DIMENSIONS.map(d => [d.key, `BEISPIEL: Was im Bereich ${d.label} bereits trägt, steht hier zuerst — etwa eine klare Hauptüberschrift. Danach folgt die wichtigste Lücke mit Beleg und der Hinweis, ob sie dringend ist oder den langfristigen Aufbau betrifft.`])),
       staerken: [
         'BEISPIEL: Klare Hauptbotschaft auf der Startseite («Kommunikation, die wirkt»).',
         'BEISPIEL: Leistungen sind in vier Bereiche gegliedert, jeder mit eigener Seite.',

@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { crawlWebsite } from '../crawl/crawlWebsite'
+import { crawlWebsite, type StartInfo } from '../crawl/crawlWebsite'
 import { measurePageSpeed } from '../measure/pagespeed'
 import {
   addUsage, ANALYSIS_EFFORT, ANALYSIS_MODEL, anthropicClient, emptyUsage, fehlerArt,
@@ -49,7 +49,8 @@ function writingPhase(json: string): string | null {
     ['"textbeispiele"', 'Textbeispiele werden ausgewählt'],
     ['"massnahmen"', 'Massnahmen werden abgeleitet'],
     ['"staerken"', 'Stärken werden zusammengefasst'],
-    ...[...DIMENSIONS].reverse().map(d => [`"${d.key}"`, `Bewertet: ${d.label}`] as [string, string]),
+    ['"befunde"', 'Befunde werden geschrieben'],
+    ['"urteile"', 'Prüfpunkte werden beurteilt'],
     ['"firma"', 'Firmenprofil wird erfasst'],
   ]
   for (const [needle, label] of markers) if (json.includes(needle)) return label
@@ -107,11 +108,14 @@ function assemble(args: {
   output: ModelOutput
 }): { dimensionen: DimensionResult[]; massnahmen: Massnahme[] } {
   const { measured, output } = args
+  // Erstes Urteil je Prüfpunkt zählt; doppelte werden ignoriert.
+  const urteile = new Map<string, { urteil: string; beleg: string }>()
+  for (const u of output.urteile ?? []) if (!urteile.has(u.id)) urteile.set(u.id, u)
+
   const dimensionen = DIMENSIONS.map((def): DimensionResult => {
-    const fromModel = output.dimensionen?.[def.key]
     const kriterien: CriterionResult[] = def.kriterien.map(c => {
       if (c.quelle === 'messung') return measured[def.key].find(m => m.id === c.id)!
-      const j = fromModel?.kriterien?.[c.id]
+      const j = urteile.get(c.id)
       // Fehlt ein Urteil trotz Schema, gilt der Punkt als nicht geprüft —
       // nie als Durchschnitt (der alte Fehler: still eine 5).
       const urteil: Urteil = j ? pick(j.urteil, URTEILE, 'nicht_pruefbar') : 'nicht_pruefbar'
@@ -122,7 +126,7 @@ function assemble(args: {
       label: def.label,
       score: dimensionScore(kriterien),
       basis: dimensionBasis(kriterien),
-      befund: fromModel?.befund?.trim() ?? '',
+      befund: output.befunde?.[def.key]?.trim() ?? '',
       kriterien,
     }
   })
@@ -150,17 +154,27 @@ export async function runCheck(rawUrl: string, onProgress: Progress = () => {}, 
   const usage = emptyUsage()
 
   onProgress('Website wird gelesen')
+  // Crawl, PageSpeed und Recherche laufen gleichzeitig. Die Recherche startet,
+  // sobald die Startseite gelesen ist (Name, verlinkte Profile).
+  let startResearch!: (info: StartInfo) => void
+  const startInfo = new Promise<StartInfo>(resolve => { startResearch = resolve })
+  const researchPromise = startInfo.then(info => {
+    onProgress('Externe Sichtbarkeit wird recherchiert')
+    return (deps.research ?? researchVisibility)(info, usage)
+  })
+  // Scheitert der Crawl, darf die wartende Recherche keinen unbehandelten Fehler werfen.
+  researchPromise.catch(() => {})
+
   const [crawl, pagespeed] = await Promise.all([
-    crawlWebsite(rawUrl, msg => onProgress(msg)),
-    measurePageSpeed(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`),
+    crawlWebsite(rawUrl, msg => onProgress(msg), startResearch),
+    measurePageSpeed(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`).then(ps => {
+      onProgress(ps.measured ? `Ladezeit gemessen (PageSpeed ${ps.performance ?? '–'}/100)` : `Ladezeit nicht gemessen: ${ps.reason}`)
+      return ps
+    }),
   ])
-  onProgress(pagespeed.measured ? `Ladezeit gemessen (PageSpeed ${pagespeed.performance ?? '–'}/100)` : `Ladezeit nicht gemessen: ${pagespeed.reason}`)
 
   const measured = measureAll({ crawl, pagespeed })
-
-  onProgress('Externe Sichtbarkeit wird recherchiert')
-  const searchesBefore = usage.webSearches
-  const research = await (deps.research ?? researchVisibility)(crawl, usage)
+  const research = await researchPromise
 
   onProgress(`Analyse mit ${crawl.pages.length} Seiten startet`)
   const prompt = buildUserPrompt({ crawl, measured, research })
@@ -197,7 +211,7 @@ export async function runCheck(rawUrl: string, onProgress: Progress = () => {}, 
       seiten: crawl.pages.map(p => ({ url: p.url, status: p.statusCode, woerter: p.wordCount, lesbar: p.readable })),
       nichtErreichbar: crawl.unreachable,
     },
-    recherche: research ? { text: research, suchen: usage.webSearches - searchesBefore } : null,
+    recherche: research ? { text: research, suchen: usage.webSearches } : null,
     meta: {
       model: ANALYSIS_MODEL,
       researchModel: RESEARCH_MODEL,

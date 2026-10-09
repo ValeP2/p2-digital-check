@@ -15,16 +15,27 @@ export function isCounted(u: Urteil): boolean {
   return u in WERT
 }
 
+/**
+ * Unter diesem Anteil prüfbarer Gewichte gibt es keine Zahl. Belegter Fall
+ * (09.10.2026): Die Recherche fiel aus, übrig blieb ein einziger gemessener
+ * Punkt ("keine Social-Links"), und die externe Sichtbarkeit stand auf 0 —
+ * eine Zahl ohne Grundlage, die wie ein vernichtendes Urteil aussah.
+ */
+export const MIN_ABDECKUNG = 0.4
+
 export function dimensionScore(kriterien: CriterionResult[]): number | null {
   let sum = 0
-  let total = 0
+  let counted = 0
+  let all = 0
   for (const k of kriterien) {
+    if (k.urteil !== 'nicht_relevant') all += k.gewicht
     const v = WERT[k.urteil]
     if (v === undefined) continue
     sum += v * k.gewicht
-    total += k.gewicht
+    counted += k.gewicht
   }
-  return total === 0 ? null : Math.round((sum / total) * 100)
+  if (counted === 0 || counted < all * MIN_ABDECKUNG) return null
+  return Math.round((sum / counted) * 100)
 }
 
 export function dimensionBasis(kriterien: CriterionResult[]): Basis | null {
