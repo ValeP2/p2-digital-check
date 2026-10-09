@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Plus, Users, LogOut, Menu, X, Trash2, Archive } from 'lucide-react'
 import Brand from './Brand'
 import UserManager from './UserManager'
-import { cn, ScoreRing, scoreColor, VERLAUF_KNOPF } from './ui'
+import { cn, ScoreRing, scoreColor } from './ui'
 import type { HistoryItem } from '../api/history/route'
 
 export const APP_VERSION = '2.0.0'
@@ -96,9 +96,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="px-3">
         <Link href="/" onClick={onNavigate}
-          style={{ background: VERLAUF_KNOPF }}
-          className={cn('flex items-center gap-2 px-3 py-2.5 rounded-md text-[14px] font-medium text-white transition-[filter] hover:brightness-110',
-            pathname === '/' ? 'shadow-[0_4px_14px_rgba(91,79,209,0.35)]' : '')}>
+          className="flex items-center gap-2 px-3 py-2.5 rounded-md bg-primary text-primary-foreground text-[14px] font-medium hover:bg-primary/90 transition-colors">
           <Plus className="w-4 h-4" /> Neuer Check
         </Link>
       </div>
@@ -154,7 +152,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       )}
 
       <main className="md:pl-[248px]">
-        <div className="max-w-[1080px] mx-auto px-4 md:px-10 py-8 md:py-12">{children}</div>
+        <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-8 md:py-12">{children}</div>
       </main>
     </div>
   )

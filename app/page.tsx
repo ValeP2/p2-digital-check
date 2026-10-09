@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, Check, Loader2, AlertCircle, RotateCcw } from 'lucide-react'
 import AppShell, { refreshHistory } from './components/AppShell'
-import { Card, KNOPF_LEISE, VERLAUF, cn } from './components/ui'
+import { Card, FELD, KNOPF, cn } from './components/ui'
 import type { HistoryItem } from './api/history/route'
 
 // ── Neuer Check ──────────────────────────────────────────────────
@@ -118,17 +118,16 @@ function Runner() {
   const sekunden = running ? Math.max(0, Math.round((now - phase.start) / 1000)) : 0
 
   return (
-    <div className="max-w-[860px]">
-      {/* Kopf im violetten Verlauf der Kompass-Anmeldung: die Farbe des Digital Check */}
-      <div className="rounded-xl p-7 md:p-10 text-white shadow-[0_12px_40px_rgba(66,56,168,0.25)]" style={{ background: VERLAUF }}>
-        <h1 className="text-[28px] md:text-[32px] font-semibold leading-tight">{vorher ? 'Nachprüfung' : 'Neuer Digital Check'}</h1>
-        <p className="text-[14.5px] text-white/80 mt-2 leading-relaxed max-w-[620px]">
+    <div>
+      <Card className="p-7 md:p-9 !border-black/[0.06]">
+        <h1 className="text-[24px] md:text-[26px] font-semibold text-foreground leading-tight">{vorher ? 'Nachprüfung' : 'Neuer Digital Check'}</h1>
+        <p className="text-[14px] text-muted-foreground mt-1.5 leading-relaxed max-w-[640px]">
           {vorher
             ? 'Dieselbe Website wird nach denselben Prüfpunkten neu bewertet und mit dem früheren Check verglichen.'
             : 'Website-Adresse eingeben. Der Check liest die Seiten, misst Technik und Ladezeit, recherchiert die externe Sichtbarkeit und beurteilt 49 Prüfpunkte.'}
         </p>
 
-        <form onSubmit={e => { e.preventDefault(); start(url, vorher) }} className="flex flex-col sm:flex-row gap-3 mt-7">
+        <form onSubmit={e => { e.preventDefault(); start(url, vorher) }} className="flex flex-col sm:flex-row gap-3 mt-6">
           <input
             value={url}
             onChange={e => { setUrl(e.target.value); setVorher(null) }}
@@ -136,31 +135,30 @@ function Runner() {
             aria-label="Website-Adresse"
             disabled={running}
             autoFocus
-            className="sm:flex-1 px-4 pt-3.5 pb-3 rounded-md bg-white text-[15px] text-foreground placeholder:text-[#9CA3AF] outline-none border border-transparent focus:border-white focus:ring-4 focus:ring-white/25 disabled:opacity-70"
+            className={cn(FELD, 'sm:flex-1')}
           />
-          <button type="submit" disabled={running || !url.trim()}
-            className="inline-flex items-center justify-center gap-2 pt-3.5 pb-3 px-6 rounded-md bg-[#1C1C1E] text-white text-[14.5px] font-medium hover:bg-black transition-colors disabled:opacity-60 outline-none focus-visible:ring-4 focus-visible:ring-white/40">
+          <button type="submit" disabled={running || !url.trim()} className={KNOPF}>
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
             {vorher ? 'Nachprüfen' : 'Check starten'}
           </button>
         </form>
 
         {bekannt && !running && (
-          <div className="mt-4 rounded-lg bg-white/15 px-4 py-3 text-[13px] text-white leading-relaxed">
+          <div className="mt-4 rounded-lg bg-primary/[0.06] border border-primary/15 px-4 py-3 text-[13px] text-foreground/85 leading-relaxed">
             Für {host(url)} gibt es schon einen Check vom {new Date(bekannt.date).toLocaleDateString('de-CH')} ({bekannt.score ?? '–'} Punkte).{' '}
-            <button onClick={() => setVorher(bekannt.id)} className="font-semibold underline underline-offset-2 hover:text-white/80">Als Nachprüfung mit Vergleich starten</button>
+            <button onClick={() => setVorher(bekannt.id)} className="font-medium text-primary hover:underline">Als Nachprüfung mit Vergleich starten</button>
             {' · '}
-            <a href={`/check/${bekannt.id}`} className="font-semibold underline underline-offset-2 hover:text-white/80">Bestehenden ansehen</a>
+            <a href={`/check/${bekannt.id}`} className="font-medium text-primary hover:underline">Bestehenden ansehen</a>
           </div>
         )}
 
         {process.env.NODE_ENV === 'development' && !running && (
-          <label className="mt-4 flex items-center gap-2 text-[12px] text-white/70">
+          <label className="mt-4 flex items-center gap-2 text-[12px] text-muted-foreground">
             <input type="checkbox" checked={beispiel} onChange={e => setBeispiel(e.target.checked)} />
             Beispiel-Modus: echter Crawl, KI-Texte sind Beispieldaten (nur lokal, kostet nichts)
           </label>
         )}
-      </div>
+      </Card>
 
       {running && (
         <Card className="p-6 mt-5 fade-in-up">
@@ -192,16 +190,20 @@ function Runner() {
       )}
 
       {phase.state === 'error' && (
-        <Card className="p-6 mt-5 border-l-4 !border-l-bad">
+        // Ganze Fläche rot, Schrift weiss — kein farbiger Seitenstrich.
+        <div role="alert" className="mt-5 rounded-xl bg-[#E5484D] text-white p-6">
           <div className="flex gap-3">
-            <AlertCircle className="w-5 h-5 text-bad shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             <div>
-              <p className="text-[14px] font-semibold text-foreground">Der Check konnte nicht abgeschlossen werden</p>
-              <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">{phase.message}</p>
-              <button onClick={() => start(url, vorher)} className={cn(KNOPF_LEISE, 'mt-4')}><RotateCcw className="w-3.5 h-3.5" /> Erneut versuchen</button>
+              <p className="text-[15px] font-semibold">Der Check konnte nicht abgeschlossen werden</p>
+              <p className="text-[13.5px] text-white/90 mt-1 leading-relaxed">{phase.message}</p>
+              <button onClick={() => start(url, vorher)}
+                className="mt-4 inline-flex items-center gap-2 pt-2.5 pb-2 px-4 rounded-md bg-white text-[#C62F35] text-[13px] font-semibold hover:bg-white/90 transition-colors">
+                <RotateCcw className="w-3.5 h-3.5" /> Erneut versuchen
+              </button>
             </div>
           </div>
-        </Card>
+        </div>
       )}
     </div>
   )

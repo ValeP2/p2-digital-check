@@ -11,10 +11,8 @@ export function cn(...parts: (string | false | null | undefined)[]): string {
 
 // Wie im Kompass (anmelde-rahmen.tsx): Feld grau, Knopf schwarz.
 export const FELD = 'w-full px-4 pt-3 pb-2.5 rounded-md border border-black/10 bg-[#F5F5F7] text-[14px] text-foreground placeholder:text-[#9CA3AF] outline-none focus:border-foreground transition-colors'
-// Violetter Verlauf wie der Grund der Kompass-Anmeldung — die Farbe des Digital Check.
-export const VERLAUF = 'radial-gradient(circle at 12% 8%, #9C8FFF 0%, #7B6FEF 38%, #5B4FD1 72%, #4238A8 100%)'
-export const VERLAUF_KNOPF = 'linear-gradient(135deg, #8F84F7 0%, #7B6FEF 45%, #5B4FD1 100%)'
-export const KNOPF = 'inline-flex items-center justify-center gap-2 pt-3 pb-2.5 px-5 rounded-md text-white text-[14px] font-medium shadow-[0_4px_14px_rgba(91,79,209,0.35)] hover:brightness-110 transition-[filter,opacity] disabled:opacity-50 disabled:shadow-none outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [background:linear-gradient(135deg,#8F84F7_0%,#7B6FEF_45%,#5B4FD1_100%)]'
+// Wie der Kompass-Knopf «Neue Analyse»: flächig in der Primärfarbe, ohne Verlauf.
+export const KNOPF = 'inline-flex items-center justify-center gap-2 pt-3 pb-2.5 px-5 rounded-md bg-primary text-primary-foreground text-[14px] font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
 export const KNOPF_LEISE = 'inline-flex items-center justify-center gap-2 pt-2.5 pb-2 px-4 rounded-md border border-black/10 bg-white text-[13px] font-medium text-foreground hover:bg-[#F5F5F7] transition-colors disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {

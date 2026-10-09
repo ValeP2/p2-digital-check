@@ -12,7 +12,8 @@
   --muted: #F5F5F7;
   --muted-foreground: #6B7280;
   --border: rgba(0, 0, 0, 0.08);
-  --primary: #7B6FEF;
+  /* Exakt die Primärfarbe des Kompass (globals.css dort) */
+  --primary: oklch(0.52 0.22 280);
   --primary-foreground: #FFFFFF;
   --good: #10b981;
   --warn: #f59e0b;
